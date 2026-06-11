@@ -312,3 +312,58 @@ code, pre { font-family: var(--font-mono); }
 @keyframes tnk-spin { to { transform: rotate(360deg); } }
 @keyframes tnk-fade { from { opacity: 0; } }
 @keyframes tnk-pop  { from { opacity: 0; transform: scale(0.98) translateY(4px); } }
+
+/* ---------- Org chart tree (connector lines) ---------- */
+.orgtree ul {
+  display: flex;
+  justify-content: center;
+  position: relative;
+  padding: 24px 0 0;
+  margin: 0;
+  list-style: none;
+}
+.orgtree li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 24px 10px 0;
+}
+.orgtree li::before,
+.orgtree li::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 50%;
+  width: 50%;
+  height: 24px;
+  border-top: 1px solid var(--border-2);
+}
+.orgtree li::after {
+  right: auto;
+  left: 50%;
+  border-left: 1px solid var(--border-2);
+}
+.orgtree li:only-child { padding-top: 0; }
+.orgtree li:only-child::before,
+.orgtree li:only-child::after { display: none; }
+.orgtree li:first-child::before,
+.orgtree li:last-child::after { border-top: 0 none; }
+.orgtree li:last-child::before {
+  border-right: 1px solid var(--border-2);
+  border-radius: 0 var(--radius-md) 0 0;
+}
+.orgtree li:first-child::after { border-radius: var(--radius-md) 0 0 0; }
+.orgtree ul ul::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 24px;
+  border-left: 1px solid var(--border-2);
+}
+.orgtree > ul { padding-top: 0; }
+.orgtree > ul > li { padding-top: 0; }
+.orgtree > ul > li::before,
+.orgtree > ul > li::after { display: none; }
