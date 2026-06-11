@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/app-shell";
-import { Icon, Card, Badge, Button, Table, Input, Select, Stat, EmptyState, IconButton, Dialog, type BadgeTone } from "@/components/ui";
+import { Icon, Card, Badge, Button, Table, Input, Select, Stat, EmptyState, IconButton, Dialog, Banner, type BadgeTone } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { SCREEN_THRESHOLD, type OpeningKeyword } from "@/lib/ats";
 
@@ -213,11 +213,20 @@ function OfferDialog({ applicant, onClose }: { applicant: ApplicantRow | null; o
   );
 }
 
-export function OpeningDetail({ opening, applicants }: { opening: OpeningData; applicants: ApplicantRow[] }) {
+export type PendingRejection = { id: string; count: number; requested: string };
+
+export function OpeningDetail({ opening, applicants, isAdmin, pendingRejection }: {
+  opening: OpeningData;
+  applicants: ApplicantRow[];
+  isAdmin: boolean;
+  pendingRejection: PendingRejection | null;
+}) {
   const router = useRouter();
   const [offerTarget, setOfferTarget] = React.useState<ApplicantRow | null>(null);
   const [rejectOpen, setRejectOpen] = React.useState(false);
   const [rejectBusy, setRejectBusy] = React.useState(false);
+  const [decideBusy, setDecideBusy] = React.useState(false);
+  const [declineTarget, setDeclineTarget] = React.useState<ApplicantRow | null>(null);
   const [signedFor, setSignedFor] = React.useState<string | null>(null);
   const signedInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -246,7 +255,7 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
     router.refresh();
   };
 
-  const rejectRest = async () => {
+  const requestRejection = async () => {
     setRejectBusy(true);
     const res = await fetch("/api/recruiting/reject", {
       method: "POST",
@@ -257,7 +266,35 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
     if (res.ok) {
       setRejectOpen(false);
       router.refresh();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      alert(body.error ?? "Could not submit the rejection batch");
     }
+  };
+
+  const decideRejection = async (decision: "approve" | "cancel") => {
+    if (!pendingRejection) return;
+    setDecideBusy(true);
+    const res = await fetch("/api/recruiting/reject/decide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ batchId: pendingRejection.id, decision }),
+    });
+    setDecideBusy(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      alert(body.error ?? "Could not decide the rejection batch");
+    }
+    router.refresh();
+  };
+
+  const markOfferDeclined = async () => {
+    if (!declineTarget?.offer) return;
+    const supabase = createClient();
+    await supabase.from("offers").update({ status: "declined" }).eq("id", declineTarget.offer.id);
+    await supabase.from("applications").update({ status: "rejected" }).eq("id", declineTarget.id);
+    setDeclineTarget(null);
+    router.refresh();
   };
 
   return (
@@ -265,7 +302,7 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
       eyebrow="Recruiting"
       title={opening.title}
       actions={
-        remaining.length > 0 ? (
+        remaining.length > 0 && !pendingRejection ? (
           <Button variant="secondary" size="sm" icon={<Icon name="mail-x" size={14} />} onClick={() => setRejectOpen(true)}>
             Reject remaining & notify
           </Button>
@@ -273,6 +310,27 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+        {pendingRejection ? (
+          <Banner
+            tone="warning"
+            title={`Rejection emails awaiting approval — ${pendingRejection.count} candidate(s)`}
+            description={
+              isAdmin
+                ? `Requested ${pendingRejection.requested}. Approving sends the emails; anyone moved to the offer stage since is excluded. If your offered candidate declines, mark the offer declined and pick someone else before approving.`
+                : `Requested ${pendingRejection.requested}. An owner or admin must approve before any email is sent.`
+            }
+            action={
+              isAdmin ? (
+                <span style={{ display: "flex", gap: 6 }}>
+                  <Button variant="secondary" size="sm" disabled={decideBusy} onClick={() => decideRejection("cancel")}>Cancel batch</Button>
+                  <Button variant="danger" size="sm" disabled={decideBusy} onClick={() => decideRejection("approve")}>
+                    {decideBusy ? "Working…" : "Approve & send"}
+                  </Button>
+                </span>
+              ) : null
+            }
+          />
+        ) : null}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <h1 style={{ font: "var(--title-page)", color: "var(--text-1)" }}>{opening.title}</h1>
           <Badge tone={opening.status === "open" ? "success" : "neutral"} dot>{opening.status === "open" ? "Open" : opening.status}</Badge>
@@ -347,8 +405,8 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
                   r.offer ? (
                     <span style={{ display: "flex", flexDirection: "column" }}>
                       <span style={{ font: "var(--data-md)", fontSize: "var(--text-xs)", color: "var(--text-1)" }}>{r.offer.summary}</span>
-                      <span style={{ font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--text-3)" }}>
-                        {r.offer.status === "signed" ? "Signed" : `Starts ${r.offer.startDate}`}
+                      <span style={{ font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: r.offer.status === "declined" ? "var(--danger-text)" : "var(--text-3)" }}>
+                        {r.offer.status === "signed" ? "Signed" : r.offer.status === "declined" ? "Declined by candidate" : `Starts ${r.offer.startDate}`}
                       </span>
                     </span>
                   ) : <span style={{ color: "var(--text-3)" }}>—</span>
@@ -378,12 +436,17 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
                       </React.Fragment>
                     ) : null}
                     {r.status === "offer" && r.offer && r.offer.status === "sent" ? (
-                      <IconButton
-                        label="Upload signed offer"
-                        onClick={() => { setSignedFor(r.offer!.id); signedInputRef.current?.click(); }}
-                      >
-                        <Icon name="file-check" size={15} />
-                      </IconButton>
+                      <React.Fragment>
+                        <IconButton
+                          label="Upload signed offer"
+                          onClick={() => { setSignedFor(r.offer!.id); signedInputRef.current?.click(); }}
+                        >
+                          <Icon name="file-check" size={15} />
+                        </IconButton>
+                        <IconButton label="Candidate declined the offer" onClick={() => setDeclineTarget(r)}>
+                          <Icon name="ban" size={15} />
+                        </IconButton>
+                      </React.Fragment>
                     ) : null}
                     {r.offer?.signedUrl ? (
                       <a href={r.offer.signedUrl} target="_blank" rel="noreferrer" title="Signed offer">
@@ -415,14 +478,14 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
 
       <Dialog
         open={rejectOpen}
-        title="Reject remaining candidates"
-        description={`${remaining.length} candidate(s) who are not in the offer stage will be marked rejected, and each receives an email letting them know we went with another candidate.`}
+        title="Request rejection of remaining candidates"
+        description={`No emails are sent yet: this submits ${remaining.length} candidate(s) for owner/admin approval. Approve it once your offer is signed — if the offered candidate declines, you can still pick someone else from this list before approving.`}
         onClose={() => setRejectOpen(false)}
         footer={
           <React.Fragment>
             <Button variant="secondary" size="sm" onClick={() => setRejectOpen(false)}>Cancel</Button>
-            <Button variant="danger" size="sm" onClick={rejectRest} disabled={rejectBusy}>
-              {rejectBusy ? "Sending…" : `Reject ${remaining.length} & send emails`}
+            <Button variant="primary" size="sm" onClick={requestRejection} disabled={rejectBusy}>
+              {rejectBusy ? "Submitting…" : "Submit for approval"}
             </Button>
           </React.Fragment>
         }
@@ -435,6 +498,19 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
           ))}
         </div>
       </Dialog>
+
+      <Dialog
+        open={!!declineTarget}
+        title={`Offer declined — ${declineTarget?.name ?? ""}`}
+        description="Marks the offer as declined by the candidate and closes their application. Remaining candidates stay in play, so you can send a new offer to someone else."
+        onClose={() => setDeclineTarget(null)}
+        footer={
+          <React.Fragment>
+            <Button variant="secondary" size="sm" onClick={() => setDeclineTarget(null)}>Cancel</Button>
+            <Button variant="danger" size="sm" onClick={markOfferDeclined}>Mark declined</Button>
+          </React.Fragment>
+        }
+      />
     </Page>
   );
 }

@@ -13,7 +13,7 @@ export default async function OpeningPage({ params }: { params: Promise<{ id: st
   const { data: opening } = await supabase
     .from("job_openings")
     .select(`
-      id, title, description, status, keywords, created_at,
+      id, tenant_id, title, description, status, keywords, created_at,
       org_unit:org_units(name),
       location:locations(name),
       entity:legal_entities(name)
@@ -22,6 +22,23 @@ export default async function OpeningPage({ params }: { params: Promise<{ id: st
     .maybeSingle();
 
   if (!opening) notFound();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const [{ data: membership }, { data: pendingBatch }] = await Promise.all([
+    supabase
+      .from("tenant_users")
+      .select("role")
+      .eq("tenant_id", opening.tenant_id)
+      .eq("user_id", user!.id)
+      .maybeSingle(),
+    supabase
+      .from("rejection_batches")
+      .select("id, application_ids, created_at")
+      .eq("opening_id", id)
+      .eq("status", "pending_approval")
+      .maybeSingle(),
+  ]);
+  const isAdmin = !!membership && ["owner", "admin"].includes(membership.role);
 
   const { data: applications } = await supabase
     .from("applications")
@@ -99,5 +116,14 @@ export default async function OpeningPage({ params }: { params: Promise<{ id: st
     keywords,
   };
 
-  return <OpeningDetail opening={data} applicants={rows} />;
+  return (
+    <OpeningDetail
+      opening={data}
+      applicants={rows}
+      isAdmin={isAdmin}
+      pendingRejection={pendingBatch
+        ? { id: pendingBatch.id, count: pendingBatch.application_ids.length, requested: formatDate(pendingBatch.created_at) }
+        : null}
+    />
+  );
 }

@@ -2063,6 +2063,57 @@ export type Database = {
           },
         ]
       }
+      rejection_batches: {
+        Row: {
+          application_ids: string[]
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          opening_id: string
+          requested_by: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          application_ids: string[]
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          opening_id: string
+          requested_by?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          application_ids?: string[]
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          opening_id?: string
+          requested_by?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rejection_batches_opening_id_fkey"
+            columns: ["opening_id"]
+            isOneToOne: false
+            referencedRelation: "job_openings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rejection_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       software_apps: {
         Row: {
           category: string | null

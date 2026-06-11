@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { rejectionEmailTemplate, sendCandidateEmail } from "@/lib/email";
 
-/* Rejects the remaining candidates on an opening (everyone not hired, not in
-   the offer stage, and not already rejected) and emails each of them that we
-   went with another candidate. Optionally limited to specific applications. */
+/* Requests bulk rejection for an opening's remaining candidates (everyone in
+   new/shortlisted/interviewing). No emails are sent here: a pending batch is
+   created and owners/admins are notified to approve it — so if the offered
+   candidate declines, another applicant can still be picked from the pool
+   before the batch goes out. */
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const { openingId, applicationIds } = await req.json();
+  const { openingId } = await req.json();
   if (!openingId) return NextResponse.json({ error: "openingId is required" }, { status: 400 });
 
   const { data: opening } = await supabase
@@ -20,41 +21,36 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (!opening) return NextResponse.json({ error: "Opening not found" }, { status: 404 });
 
-  let query = supabase
+  const { data: existing } = await supabase
+    .from("rejection_batches")
+    .select("id")
+    .eq("opening_id", opening.id)
+    .eq("status", "pending_approval")
+    .maybeSingle();
+  if (existing) {
+    return NextResponse.json({ error: "A rejection batch is already awaiting approval for this opening" }, { status: 409 });
+  }
+
+  const { data: applications } = await supabase
     .from("applications")
-    .select("id, status, candidate:candidates(id, full_name, email)")
+    .select("id")
     .eq("opening_id", opening.id)
     .in("status", ["new", "shortlisted", "interviewing"]);
-  if (Array.isArray(applicationIds) && applicationIds.length > 0) {
-    query = query.in("id", applicationIds);
-  }
-  const { data: applications } = await query;
-
-  let rejected = 0;
-  let emailed = 0;
-  for (const app of applications ?? []) {
-    await supabase.from("applications").update({ status: "rejected" }).eq("id", app.id);
-    rejected++;
-    if (app.candidate?.email) {
-      const template = rejectionEmailTemplate({
-        candidateName: app.candidate.full_name,
-        roleTitle: opening.title,
-        company: "Tenkara",
-      });
-      const result = await sendCandidateEmail(supabase, {
-        tenantId: opening.tenant_id,
-        applicationId: app.id,
-        candidateId: app.candidate.id,
-        kind: "rejection",
-        toEmail: app.candidate.email,
-        toName: app.candidate.full_name,
-        subject: template.subject,
-        body: template.body,
-        userId: user.id,
-      });
-      if (result.status !== "failed") emailed++;
-    }
+  if (!applications || applications.length === 0) {
+    return NextResponse.json({ error: "No remaining candidates to reject" }, { status: 400 });
   }
 
-  return NextResponse.json({ rejected, emailed });
+  const { data: batch, error } = await supabase
+    .from("rejection_batches")
+    .insert({
+      tenant_id: opening.tenant_id,
+      opening_id: opening.id,
+      application_ids: applications.map((a) => a.id),
+      requested_by: user.id,
+    })
+    .select("id")
+    .single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ batchId: batch.id, pending: applications.length });
 }
