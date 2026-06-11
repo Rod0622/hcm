@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { WORKER_STATUS, formatDate } from "@/lib/format";
+import { avatarUrl } from "@/lib/avatar";
 import { Directory, type DirectoryRow } from "./directory";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export default async function EmployeeDirectoryPage() {
     .from("workers")
     .select(`
       id, employee_number, status, hired_on, manager_worker_id,
-      person:people(full_name),
+      person:people(full_name, avatar_path),
       position:positions(title),
       org_unit:org_units(name),
       entity:legal_entities(name),
@@ -27,6 +28,7 @@ export default async function EmployeeDirectoryPage() {
       id: w.id,
       number: w.employee_number ?? "—",
       name: w.person?.full_name ?? "—",
+      avatarSrc: avatarUrl(w.person?.avatar_path) ?? null,
       role: w.position?.title ?? "—",
       dept: w.org_unit?.name ?? "—",
       location: w.location?.name ?? "—",

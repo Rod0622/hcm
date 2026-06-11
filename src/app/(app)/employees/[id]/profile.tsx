@@ -1,8 +1,10 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Page } from "@/components/app-shell";
-import { Icon, Card, Badge, Button, Avatar, Table, Tabs, IconButton, Stat, EmptyState, type BadgeTone } from "@/components/ui";
+import { Icon, Card, Badge, Button, Avatar, Table, Tabs, IconButton, Stat, EmptyState, Dialog, Input, Select, type BadgeTone } from "@/components/ui";
+import { createClient } from "@/lib/supabase/client";
 
 export type ProfileData = {
   name: string;
@@ -15,6 +17,8 @@ export type ProfileData = {
   manager: string;
   type: string;
   email: string;
+  phone: string;
+  avatarSrc: string | null;
   start: string;
   status: string;
   statusTone: BadgeTone;
@@ -26,12 +30,190 @@ export type ProfileData = {
   activity: Array<{ when: string; who: string; what: string }>;
 };
 
+export type EditData = {
+  workerId: string;
+  personId: string;
+  tenantId: string;
+  orgUnitId: string | null;
+  locationId: string | null;
+  name: string;
+  phone: string;
+  title: string;
+  level: string;
+  salary: number | null;
+  currency: string;
+  locations: Array<{ id: string; name: string }>;
+};
+
+const CURRENCIES = ["USD", "PHP", "SGD"];
+
+async function uploadAvatar(tenantId: string, personId: string, file: File): Promise<string | null> {
+  const supabase = createClient();
+  const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+  const path = `${tenantId}/${personId}/avatar-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("avatars").upload(path, file, { contentType: file.type, upsert: true });
+  if (error) return null;
+  await supabase.from("people").update({ avatar_path: path }).eq("id", personId);
+  return path;
+}
+
 function KV({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <span style={{ font: "var(--label-caps)", letterSpacing: "var(--tracking-caps)", textTransform: "uppercase", color: "var(--text-3)" }}>{k}</span>
       <span style={{ font: mono ? "var(--data-md)" : "var(--body-sm)", color: "var(--text-1)" }}>{v}</span>
     </div>
+  );
+}
+
+function EditDialog({ open, onClose, edit, currentAvatar }: {
+  open: boolean;
+  onClose: () => void;
+  edit: EditData;
+  currentAvatar: string | null;
+}) {
+  const router = useRouter();
+  const [name, setName] = React.useState(edit.name);
+  const [phone, setPhone] = React.useState(edit.phone);
+  const [title, setTitle] = React.useState(edit.title);
+  const [level, setLevel] = React.useState(edit.level);
+  const [locationId, setLocationId] = React.useState(edit.locationId ?? "");
+  const [salary, setSalary] = React.useState(edit.salary != null ? String(edit.salary) : "");
+  const [currency, setCurrency] = React.useState(edit.currency);
+  const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
+  const [preview, setPreview] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+
+  const pickFile = (f: File | null) => {
+    setAvatarFile(f);
+    if (preview) URL.revokeObjectURL(preview);
+    setPreview(f ? URL.createObjectURL(f) : null);
+  };
+
+  const save = async () => {
+    if (!name.trim()) {
+      setError("Name is required.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    try {
+      if (avatarFile) {
+        const path = await uploadAvatar(edit.tenantId, edit.personId, avatarFile);
+        if (!path) throw new Error("Photo upload failed");
+      }
+
+      const { error: personError } = await supabase
+        .from("people")
+        .update({ full_name: name.trim(), phone: phone.trim() || null })
+        .eq("id", edit.personId);
+      if (personError) throw new Error(personError.message);
+
+      // Role/level change: reuse a matching position or create a fresh one so
+      // shared position rows aren't mutated under other employees.
+      if (title.trim() !== edit.title || level.trim() !== edit.level) {
+        const { data: existing } = await supabase
+          .from("positions")
+          .select("id")
+          .eq("title", title.trim())
+          .eq("level", level.trim())
+          .limit(1)
+          .maybeSingle();
+        let positionId = existing?.id;
+        if (!positionId) {
+          const { data: created, error: positionError } = await supabase
+            .from("positions")
+            .insert({ tenant_id: edit.tenantId, org_unit_id: edit.orgUnitId, title: title.trim(), level: level.trim() || null })
+            .select("id")
+            .single();
+          if (positionError) throw new Error(positionError.message);
+          positionId = created.id;
+        }
+        const { error: workerError } = await supabase.from("workers").update({ position_id: positionId }).eq("id", edit.workerId);
+        if (workerError) throw new Error(workerError.message);
+      }
+
+      if (locationId && locationId !== (edit.locationId ?? "")) {
+        const { error: locationError } = await supabase.from("workers").update({ location_id: locationId }).eq("id", edit.workerId);
+        if (locationError) throw new Error(locationError.message);
+      }
+
+      const newSalary = Number(salary.replace(/[, ]/g, ""));
+      if (salary && Number.isFinite(newSalary) && newSalary > 0 && (newSalary !== edit.salary || currency !== edit.currency)) {
+        const { error: compError } = await supabase.from("compensation_records").insert({
+          tenant_id: edit.tenantId,
+          worker_id: edit.workerId,
+          effective_date: new Date().toISOString().slice(0, 10),
+          event: "adjustment",
+          base_amount: newSalary,
+          currency,
+          frequency: "annual",
+          components: { approved_by_label: "Profile edit" },
+          reason: "Profile edit",
+        });
+        if (compError) throw new Error(compError.message);
+      }
+
+      onClose();
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save changes");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      title="Edit profile"
+      description="Salary changes are recorded in compensation history; all edits land in the audit log."
+      onClose={onClose}
+      footer={
+        <React.Fragment>
+          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={save} disabled={busy}>
+            {busy ? "Saving…" : "Save changes"}
+          </Button>
+        </React.Fragment>
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <Avatar name={name || edit.name} size={44} src={preview ?? currentAvatar ?? undefined} />
+          <Button variant="secondary" size="sm" icon={<Icon name="image-up" size={14} />} onClick={() => fileRef.current?.click()}>
+            {avatarFile ? avatarFile.name : "Upload photo"}
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            style={{ display: "none" }}
+            onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+          />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
+          <Input label="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input label="Contact number" placeholder="+63 917 555 0123" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <Input label="Role / position" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Input label="Level" placeholder="e.g. L5" value={level} onChange={(e) => setLevel(e.target.value)} />
+          <Select
+            label="Location"
+            options={[{ value: "", label: "— No location —" }, ...edit.locations.map((l) => ({ value: l.id, label: l.name }))]}
+            value={locationId}
+            onChange={(e) => setLocationId(e.target.value)}
+          />
+          <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: "var(--space-3)" }}>
+            <Input label="Base salary / yr" mono value={salary} onChange={(e) => setSalary(e.target.value)} />
+            <Select label="Currency" options={CURRENCIES} value={currency} onChange={(e) => setCurrency(e.target.value)} />
+          </div>
+        </div>
+        {error ? <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--danger)" }}>{error}</span> : null}
+      </div>
+    </Dialog>
   );
 }
 
@@ -48,6 +230,7 @@ function Overview({ P }: { P: ProfileData }) {
           <KV k="Start date" v={P.start} mono />
           <KV k="Employee ID" v={P.number} mono />
           <KV k="Work email" v={P.email} mono />
+          <KV k="Contact number" v={P.phone} mono />
         </div>
       </Card>
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
@@ -140,22 +323,46 @@ function Compensation({ P }: { P: ProfileData }) {
   );
 }
 
-export function Profile({ data: P }: { data: ProfileData }) {
+export function Profile({ data: P, edit, isAdmin, isSelf }: {
+  data: ProfileData;
+  edit: EditData;
+  isAdmin: boolean;
+  isSelf: boolean;
+}) {
+  const router = useRouter();
   const [tab, setTab] = React.useState("overview");
+  const [editOpen, setEditOpen] = React.useState(false);
+  const photoRef = React.useRef<HTMLInputElement>(null);
+
+  const selfPhotoUpload = async (file: File) => {
+    const path = await uploadAvatar(edit.tenantId, edit.personId, file);
+    if (!path) alert("Photo upload failed");
+    router.refresh();
+  };
+
   return (
     <Page
       eyebrow="Employees"
       title={P.name}
       actions={
         <React.Fragment>
+          {isSelf && !isAdmin ? (
+            <Button variant="secondary" size="sm" icon={<Icon name="image-up" size={14} />} onClick={() => photoRef.current?.click()}>
+              Change photo
+            </Button>
+          ) : null}
           <Button variant="secondary" size="sm" icon={<Icon name="workflow" size={14} />}>Start workflow</Button>
-          <Button variant="primary" size="sm" icon={<Icon name="pencil" size={13} />}>Edit profile</Button>
+          {isAdmin ? (
+            <Button variant="primary" size="sm" icon={<Icon name="pencil" size={13} />} onClick={() => setEditOpen(true)}>
+              Edit profile
+            </Button>
+          ) : null}
         </React.Fragment>
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Avatar name={P.name} size={56} status="online" />
+          <Avatar name={P.name} size={56} status="online" src={P.avatarSrc ?? undefined} />
           <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <h1 style={{ font: "var(--title-page)", color: "var(--text-1)" }}>{P.name}</h1>
@@ -180,6 +387,21 @@ export function Profile({ data: P }: { data: ProfileData }) {
         {tab === "docs" ? <Documents P={P} /> : null}
         {tab === "devices" ? <Devices /> : null}
       </div>
+
+      <input
+        ref={photoRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) selfPhotoUpload(f);
+          e.target.value = "";
+        }}
+      />
+      {isAdmin && editOpen ? (
+        <EditDialog open={editOpen} onClose={() => setEditOpen(false)} edit={edit} currentAvatar={P.avatarSrc} />
+      ) : null}
     </Page>
   );
 }

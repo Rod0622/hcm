@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAccess } from "@/lib/access";
 import { formatDate } from "@/lib/format";
-import { TimeLeave, type ApprovalRow, type BalanceRow, type RequestRow } from "./time-client";
+import { TimeLeave, type ApprovalRow, type AttendanceWorker, type BalanceRow, type ClockEntry, type RequestRow } from "./time-client";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,12 @@ export default async function TimeLeavePage() {
     .eq("user_id", user!.id)
     .maybeSingle();
 
-  const [{ data: balances }, { data: myRequests }, { data: approvals }] = await Promise.all([
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  // include late-night sessions that started "yesterday" UTC for PH timezones
+  const windowStart = new Date(todayStart.getTime() - 12 * 3600 * 1000).toISOString();
+
+  const [{ data: balances }, { data: myRequests }, { data: approvals }, { data: myEntries }, { data: allEntries }] = await Promise.all([
     supabase.from("pto_balances").select("*").order("full_name"),
     me
       ? supabase
@@ -38,6 +43,21 @@ export default async function TimeLeavePage() {
           .eq("approver_worker_id", me.id)
           .eq("status", "pending")
           .order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    me
+      ? supabase
+          .from("time_entries")
+          .select("id, kind, started_at, ended_at")
+          .eq("worker_id", me.id)
+          .gte("started_at", windowStart)
+          .order("started_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    access?.isAdmin
+      ? supabase
+          .from("time_entries")
+          .select("id, kind, started_at, ended_at, worker_id, worker:workers(person:people(full_name))")
+          .gte("started_at", windowStart)
+          .order("started_at", { ascending: true })
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -81,6 +101,23 @@ export default async function TimeLeavePage() {
     };
   });
 
+  const clockEntries: ClockEntry[] = (myEntries ?? []).map((e) => ({
+    id: e.id,
+    kind: e.kind,
+    startedAt: e.started_at,
+    endedAt: e.ended_at,
+  }));
+
+  const attendanceMap = new Map<string, AttendanceWorker>();
+  for (const e of allEntries ?? []) {
+    let rec = attendanceMap.get(e.worker_id);
+    if (!rec) {
+      rec = { workerId: e.worker_id, name: e.worker?.person?.full_name ?? "—", entries: [] };
+      attendanceMap.set(e.worker_id, rec);
+    }
+    rec.entries.push({ id: e.id, kind: e.kind, startedAt: e.started_at, endedAt: e.ended_at });
+  }
+
   return (
     <TimeLeave
       me={me ? { workerId: me.id, tenantId: me.tenant_id, managerWorkerId: me.manager_worker_id } : null}
@@ -89,6 +126,8 @@ export default async function TimeLeavePage() {
       approvals={approvalRows}
       teamBalances={balanceRows}
       isAdmin={access?.isAdmin ?? false}
+      clockEntries={clockEntries}
+      attendance={Array.from(attendanceMap.values()).sort((a, b) => a.name.localeCompare(b.name))}
     />
   );
 }

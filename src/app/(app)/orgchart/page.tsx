@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { avatarUrl } from "@/lib/avatar";
 import { OrgChart, type OrgNode } from "./orgchart-client";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ export default async function OrgChartPage() {
     .from("workers")
     .select(`
       id, manager_worker_id, status,
-      person:people(full_name),
+      person:people(full_name, avatar_path),
       position:positions(title),
       org_unit:org_units(name),
       location:locations(name)
@@ -23,6 +24,7 @@ export default async function OrgChartPage() {
     id: w.id,
     managerId: w.manager_worker_id,
     name: w.person?.full_name ?? "—",
+    avatarSrc: avatarUrl(w.person?.avatar_path) ?? null,
     title: w.position?.title ?? "—",
     dept: w.org_unit?.name ?? "—",
     location: w.location?.name ?? "—",

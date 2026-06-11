@@ -9,6 +9,7 @@ export type OrgNode = {
   id: string;
   managerId: string | null;
   name: string;
+  avatarSrc: string | null;
   title: string;
   dept: string;
   location: string;
@@ -80,7 +81,7 @@ function NodeCard({ node, highlighted, collapsed, onToggle, onFocus }: {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <Avatar name={node.name} size={32} />
+        <Avatar name={node.name} size={32} src={node.avatarSrc ?? undefined} />
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
           <span style={{ font: "var(--label-md)", fontSize: "var(--text-sm)", color: "var(--text-1)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {node.name}
@@ -177,7 +178,7 @@ function Departments({ nodes, query }: { nodes: OrgNode[]; query: string }) {
                     borderBottom: i === members.length - 1 ? "none" : "1px solid var(--border-1)",
                   }}
                 >
-                  <Avatar name={m.name} size={26} />
+                  <Avatar name={m.name} size={26} src={m.avatarSrc ?? undefined} />
                   <span style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
                     <span style={{ font: "var(--label-md)", fontSize: "var(--text-xs)", color: "var(--text-1)" }}>{m.name}</span>
                     <span style={{ font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--text-3)" }}>{m.title}</span>

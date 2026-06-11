@@ -1,19 +1,23 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAccess } from "@/lib/access";
+import { avatarUrl } from "@/lib/avatar";
 import { COMP_EVENT, DOCUMENT_STATUS, WORKER_STATUS, formatDate, formatMoney, relativeTime } from "@/lib/format";
-import { Profile, type ProfileData } from "./profile";
+import { Profile, type EditData, type ProfileData } from "./profile";
 
 export const dynamic = "force-dynamic";
 
 export default async function EmployeeProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
+  const access = await getAccess();
 
   const { data: worker } = await supabase
     .from("workers")
     .select(`
-      id, employee_number, status, worker_type, hired_on, work_email, manager_worker_id,
-      person:people(full_name),
+      id, tenant_id, employee_number, status, worker_type, hired_on, work_email,
+      manager_worker_id, org_unit_id, position_id, location_id, user_id,
+      person:people(id, full_name, phone, avatar_path),
       position:positions(title, level),
       org_unit:org_units(name),
       entity:legal_entities(name),
@@ -24,7 +28,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
 
   if (!worker) notFound();
 
-  const [{ data: manager }, { data: comp }, { data: docs }, { data: activity }] = await Promise.all([
+  const [{ data: manager }, { data: comp }, { data: docs }, { data: activity }, { data: locations }] = await Promise.all([
     worker.manager_worker_id
       ? supabase.from("workers").select("person:people(full_name)").eq("id", worker.manager_worker_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -43,6 +47,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
       .neq("source", "app")
       .order("created_at", { ascending: false })
       .limit(6),
+    supabase.from("locations").select("id, name").order("name"),
   ]);
 
   const latest = comp?.[0];
@@ -60,6 +65,8 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
     manager: manager?.person?.full_name ?? "—",
     type: worker.worker_type === "employee" ? "Full-time" : worker.worker_type,
     email: worker.work_email ?? "—",
+    phone: worker.person?.phone ?? "—",
+    avatarSrc: avatarUrl(worker.person?.avatar_path) ?? null,
     start: formatDate(worker.hired_on),
     status: status.label,
     statusTone: status.tone,
@@ -90,5 +97,27 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
     })),
   };
 
-  return <Profile data={data} />;
+  const edit: EditData = {
+    workerId: worker.id,
+    personId: worker.person?.id ?? "",
+    tenantId: worker.tenant_id,
+    orgUnitId: worker.org_unit_id,
+    locationId: worker.location_id,
+    name: worker.person?.full_name ?? "",
+    phone: worker.person?.phone ?? "",
+    title: worker.position?.title ?? "",
+    level: worker.position?.level ?? "",
+    salary: latest?.base_amount != null ? Number(latest.base_amount) : null,
+    currency: latest?.currency ?? "USD",
+    locations: (locations ?? []).map((l) => ({ id: l.id, name: l.name })),
+  };
+
+  return (
+    <Profile
+      data={data}
+      edit={edit}
+      isAdmin={access?.isAdmin ?? false}
+      isSelf={!!worker.user_id && worker.user_id === access?.userId}
+    />
+  );
 }

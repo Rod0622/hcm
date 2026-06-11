@@ -9,6 +9,7 @@ export type DirectoryRow = {
   id: string;
   number: string;
   name: string;
+  avatarSrc: string | null;
   role: string;
   dept: string;
   location: string;
@@ -74,7 +75,7 @@ export function Directory({ rows }: { rows: DirectoryRow[] }) {
               columns={[
                 { key: "name", label: "Employee", render: (r) => (
                   <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <Avatar name={r.name} size={26} />
+                    <Avatar name={r.name} size={26} src={r.avatarSrc ?? undefined} />
                     <span style={{ display: "flex", flexDirection: "column" }}>
                       <span style={{ font: "var(--label-md)", fontSize: "var(--text-sm)", color: "var(--text-1)" }}>{r.name}</span>
                       <span style={{ font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--text-3)" }}>{r.role}</span>

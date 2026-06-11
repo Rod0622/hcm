@@ -44,6 +44,185 @@ export type ApprovalRow = {
 
 type Me = { workerId: string; tenantId: string; managerWorkerId: string | null };
 
+export type ClockEntry = {
+  id: string;
+  kind: string;
+  startedAt: string;
+  endedAt: string | null;
+};
+
+export type AttendanceWorker = {
+  workerId: string;
+  name: string;
+  entries: ClockEntry[];
+};
+
+function fmtClock(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmtMins(mins: number) {
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function entryMinutes(e: ClockEntry, now: number) {
+  const end = e.endedAt ? new Date(e.endedAt).getTime() : now;
+  return Math.max(0, (end - new Date(e.startedAt).getTime()) / 60000);
+}
+
+function summarize(entries: ClockEntry[], now: number) {
+  const work = entries.filter((e) => e.kind === "work");
+  const breaks = entries.filter((e) => e.kind === "break");
+  const open = entries.find((e) => !e.endedAt) ?? null;
+  const lastEnded = entries.filter((e) => e.endedAt).map((e) => e.endedAt!).sort().pop() ?? null;
+  return {
+    open,
+    firstIn: work.length ? work[0].startedAt : null,
+    lastOut: open ? null : lastEnded,
+    workMins: work.reduce((s, e) => s + entryMinutes(e, now), 0),
+    breakMins: breaks.reduce((s, e) => s + entryMinutes(e, now), 0),
+  };
+}
+
+function TimeClock({ me, entries }: { me: Me; entries: ClockEntry[] }) {
+  const router = useRouter();
+  const [busy, setBusy] = React.useState(false);
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const s = summarize(entries, now);
+  const status = s.open ? (s.open.kind === "work" ? "Working" : "On break") : s.lastOut ? "Clocked out" : "Not clocked in";
+  const statusTone: BadgeTone = s.open ? (s.open.kind === "work" ? "success" : "warning") : "neutral";
+
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    try { await action(); } finally { setBusy(false); }
+    router.refresh();
+  };
+
+  const supabase = () => createClient();
+  const endOpen = async () => {
+    if (s.open) await supabase().from("time_entries").update({ ended_at: new Date().toISOString() }).eq("id", s.open.id);
+  };
+  const start = async (kind: "work" | "break") => {
+    await supabase().from("time_entries").insert({ tenant_id: me.tenantId, worker_id: me.workerId, kind });
+  };
+
+  return (
+    <Card
+      title="Time clock"
+      subtitle={s.firstIn ? `In at ${fmtClock(s.firstIn)}${s.lastOut ? ` · out at ${fmtClock(s.lastOut)}` : ""}` : "You haven't clocked in today"}
+      actions={<Badge tone={statusTone} dot>{status}</Badge>}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 40 }}>
+        <Stat label="Worked today" value={fmtMins(s.workMins)} />
+        <Stat label="Breaks" value={fmtMins(s.breakMins)} />
+        {s.open ? <Stat label={s.open.kind === "work" ? "Working since" : "On break since"} value={fmtClock(s.open.startedAt)} /> : null}
+        <span style={{ flex: 1 }} />
+        <span style={{ display: "flex", gap: 8 }}>
+          {!s.open ? (
+            <Button variant="primary" size="sm" disabled={busy} icon={<Icon name="play" size={13} />}
+              onClick={() => run(() => start("work"))}>
+              Clock in
+            </Button>
+          ) : null}
+          {s.open?.kind === "work" ? (
+            <Button variant="secondary" size="sm" disabled={busy} icon={<Icon name="coffee" size={13} />}
+              onClick={() => run(async () => { await endOpen(); await start("break"); })}>
+              Start break
+            </Button>
+          ) : null}
+          {s.open?.kind === "break" ? (
+            <Button variant="primary" size="sm" disabled={busy} icon={<Icon name="play" size={13} />}
+              onClick={() => run(async () => { await endOpen(); await start("work"); })}>
+              End break
+            </Button>
+          ) : null}
+          {s.open ? (
+            <Button variant="secondary" size="sm" disabled={busy} icon={<Icon name="square" size={13} />}
+              onClick={() => run(endOpen)}>
+              Clock out
+            </Button>
+          ) : null}
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+function Attendance({ rows }: { rows: AttendanceWorker[] }) {
+  const router = useRouter();
+  const [syncing, setSyncing] = React.useState(false);
+  const [syncNote, setSyncNote] = React.useState<string | null>(null);
+  const now = Date.now();
+
+  const sync = async () => {
+    setSyncing(true);
+    setSyncNote(null);
+    const res = await fetch("/api/timedoctor/sync", { method: "POST" });
+    const body = await res.json().catch(() => ({}));
+    setSyncing(false);
+    if (!res.ok) setSyncNote(body.error ?? "Sync failed");
+    else if (body.configured === false) setSyncNote(body.message);
+    else {
+      setSyncNote(`Time Doctor: imported ${body.imported} of ${body.fetched} worklog(s)${body.unmatched ? ` · ${body.unmatched} unmatched user(s)` : ""}`);
+      router.refresh();
+    }
+  };
+
+  const computed = rows.map((r) => ({ ...r, s: summarize(r.entries, now) }));
+
+  return (
+    <Card
+      title="Attendance today"
+      subtitle="Time in / time out and breaks for everyone · app clock + Time Doctor"
+      padding="0"
+      actions={
+        <Button variant="secondary" size="sm" disabled={syncing} icon={<Icon name="refresh-cw" size={13} />} onClick={sync}>
+          {syncing ? "Syncing…" : "Sync Time Doctor"}
+        </Button>
+      }
+    >
+      {syncNote ? (
+        <div style={{ padding: "8px 20px", borderBottom: "1px solid var(--border-1)", font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-2)" }}>
+          {syncNote}
+        </div>
+      ) : null}
+      {computed.length === 0 ? (
+        <EmptyState
+          icon={<Icon name="clock" size={18} />}
+          title="No activity today"
+          description="Clock-ins from the app and synced Time Doctor worklogs appear here."
+        />
+      ) : (
+        <Table
+          rowKey="workerId"
+          columns={[
+            { key: "name", label: "Employee", render: (r) => (
+              <span style={{ font: "var(--label-md)", fontSize: "var(--text-sm)", color: "var(--text-1)" }}>{r.name}</span>
+            )},
+            { key: "in", label: "Time in", mono: true, render: (r) => <span>{r.s.firstIn ? fmtClock(r.s.firstIn) : "—"}</span> },
+            { key: "out", label: "Time out", mono: true, render: (r) => <span>{r.s.lastOut ? fmtClock(r.s.lastOut) : r.s.open ? "…" : "—"}</span> },
+            { key: "work", label: "Worked", mono: true, align: "right", render: (r) => <span>{fmtMins(r.s.workMins)}</span> },
+            { key: "break", label: "Breaks", mono: true, align: "right", render: (r) => <span>{fmtMins(r.s.breakMins)}</span> },
+            { key: "status", label: "Status", render: (r) => (
+              r.s.open
+                ? <Badge tone={r.s.open.kind === "work" ? "success" : "warning"} dot>{r.s.open.kind === "work" ? "Working" : "On break"}</Badge>
+                : <Badge tone="neutral" dot>{r.s.firstIn ? "Clocked out" : "Not in"}</Badge>
+            )},
+          ]}
+          rows={computed}
+        />
+      )}
+    </Card>
+  );
+}
+
 const TYPE_OPTIONS = ["PTO", "Sick leave", "Unpaid leave"];
 const TYPE_KEYS: Record<string, string> = { "PTO": "pto", "Sick leave": "sick", "Unpaid leave": "unpaid" };
 
@@ -135,13 +314,15 @@ function RequestDialog({ open, onClose, me, balance }: {
   );
 }
 
-export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances, isAdmin }: {
+export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances, isAdmin, clockEntries, attendance }: {
   me: Me | null;
   myBalance: BalanceRow | null;
   myRequests: RequestRow[];
   approvals: ApprovalRow[];
   teamBalances: BalanceRow[];
   isAdmin: boolean;
+  clockEntries: ClockEntry[];
+  attendance: AttendanceWorker[];
 }) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -186,6 +367,10 @@ export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances, 
             description="Balances and requests are shown for the whole team below; link a worker to your account to file leave."
           />
         ) : null}
+
+        {me ? <TimeClock me={me} entries={clockEntries} /> : null}
+
+        {isAdmin ? <Attendance rows={attendance} /> : null}
 
         {myBalance ? (
           <Card title="My PTO" subtitle={`Accrues ${fmtDays(myBalance.ratePerMonth)} day/month (${myBalance.country}) since ${myBalance.hired}`}>

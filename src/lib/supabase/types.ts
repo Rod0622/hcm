@@ -1921,6 +1921,7 @@ export type Database = {
       }
       people: {
         Row: {
+          avatar_path: string | null
           created_at: string
           date_of_birth: string | null
           email: string | null
@@ -1932,6 +1933,7 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          avatar_path?: string | null
           created_at?: string
           date_of_birth?: string | null
           email?: string | null
@@ -1943,6 +1945,7 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          avatar_path?: string | null
           created_at?: string
           date_of_birth?: string | null
           email?: string | null
@@ -2348,6 +2351,67 @@ export type Database = {
           slug?: string
         }
         Relationships: []
+      }
+      time_entries: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          external_id: string | null
+          id: string
+          kind: string
+          note: string | null
+          source: string
+          started_at: string
+          tenant_id: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          external_id?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          source?: string
+          started_at?: string
+          tenant_id: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          external_id?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          source?: string
+          started_at?: string
+          tenant_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "time_entries_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workers: {
         Row: {
