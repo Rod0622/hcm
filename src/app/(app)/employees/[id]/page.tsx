@@ -1,161 +1,94 @@
-"use client";
+import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { COMP_EVENT, DOCUMENT_STATUS, WORKER_STATUS, formatDate, formatMoney, relativeTime } from "@/lib/format";
+import { Profile, type ProfileData } from "./profile";
 
-import * as React from "react";
-import { Page } from "@/components/app-shell";
-import { Icon, Card, Badge, Button, Avatar, Table, Tabs, IconButton, Stat } from "@/components/ui";
-import { profile as P } from "@/lib/data";
+export const dynamic = "force-dynamic";
 
-function KV({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <span style={{ font: "var(--label-caps)", letterSpacing: "var(--tracking-caps)", textTransform: "uppercase", color: "var(--text-3)" }}>{k}</span>
-      <span style={{ font: mono ? "var(--data-md)" : "var(--body-sm)", color: "var(--text-1)" }}>{v}</span>
-    </div>
-  );
-}
+export default async function EmployeeProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
 
-function Overview() {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "var(--space-4)", alignItems: "start" }}>
-      <Card title="Details">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5) var(--space-4)" }}>
-          <KV k="Manager" v={P.manager} />
-          <KV k="Department" v={P.dept} />
-          <KV k="Location" v={P.location} />
-          <KV k="Employment type" v={P.type} />
-          <KV k="Legal entity" v={P.entity} />
-          <KV k="Start date" v={P.start} mono />
-          <KV k="Employee ID" v={P.id} mono />
-          <KV k="Work email" v={P.email} mono />
-        </div>
-      </Card>
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-        <Card title="Compensation" actions={<IconButton label="Audit history"><Icon name="history" size={15} /></IconButton>}>
-          <div style={{ display: "flex", gap: 40 }}>
-            <Stat label="Base salary" value={P.salary} hint={P.currency} />
-            <Stat label="Level" value={P.level} mono={false} />
-            <Stat label="Equity" value={P.equity} />
-          </div>
-        </Card>
-        <Card title="Recent activity" padding="0">
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {P.activity.map((a, i) => (
-              <div key={i} style={{ display: "flex", gap: 12, padding: "10px 20px", borderBottom: i === P.activity.length - 1 ? "none" : "1px solid var(--border-1)" }}>
-                <span style={{ width: 64, flexShrink: 0, font: "var(--weight-medium) var(--text-2xs)/1.4 var(--font-mono)", color: "var(--text-3)", paddingTop: 2 }}>{a.when}</span>
-                <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
-                  <span style={{ font: "var(--label-md)", fontSize: "var(--text-xs)", color: "var(--text-2)" }}>{a.who}</span>
-                  <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-1)" }}>{a.what}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
+  const { data: worker } = await supabase
+    .from("workers")
+    .select(`
+      id, employee_number, status, worker_type, hired_on, work_email, manager_worker_id,
+      person:people(full_name),
+      position:positions(title, level),
+      org_unit:org_units(name),
+      entity:legal_entities(name),
+      location:locations(name)
+    `)
+    .eq("id", id)
+    .maybeSingle();
 
-function Documents() {
-  return (
-    <Card title="Documents" subtitle={`${P.documents.length} on file`} padding="0" actions={<Button size="sm" variant="secondary" icon={<Icon name="plus" size={14} />}>Request document</Button>}>
-      <Table
-        rowKey="name"
-        onRowClick={() => {}}
-        columns={[
-          { key: "name", label: "Document", render: (r) => <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Icon name="file-text" size={15} color="var(--text-3)" />{r.name}</span> },
-          { key: "kind", label: "Type" },
-          { key: "date", label: "Date", mono: true },
-          { key: "status", label: "Status", render: (r) => <Badge tone={r.tone} dot>{r.status}</Badge> },
-        ]}
-        rows={P.documents}
-      />
-    </Card>
-  );
-}
+  if (!worker) notFound();
 
-function Devices() {
-  return (
-    <Card title="Devices & access" subtitle="Managed by IT automation" padding="0">
-      <Table
-        rowKey="id"
-        columns={[
-          { key: "name", label: "Device", render: (r) => <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Icon name="laptop" size={15} color="var(--text-3)" />{r.name}</span> },
-          { key: "id", label: "Asset ID", mono: true },
-          { key: "assigned", label: "Assigned", mono: true },
-          { key: "status", label: "Status", render: (r) => <Badge tone={r.tone} dot>{r.status}</Badge> },
-        ]}
-        rows={P.devices}
-      />
-    </Card>
-  );
-}
+  const [{ data: manager }, { data: comp }, { data: docs }, { data: activity }] = await Promise.all([
+    worker.manager_worker_id
+      ? supabase.from("workers").select("person:people(full_name)").eq("id", worker.manager_worker_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from("compensation_records")
+      .select("effective_date, event, base_amount, currency, frequency, components")
+      .eq("worker_id", id)
+      .order("effective_date", { ascending: false }),
+    supabase.from("documents")
+      .select("id, name, kind, status, created_at")
+      .eq("worker_id", id)
+      .order("created_at", { ascending: false }),
+    supabase.from("audit_events")
+      .select("actor_label, action, created_at")
+      .eq("object_type", "workers")
+      .eq("object_id", id)
+      .neq("source", "app")
+      .order("created_at", { ascending: false })
+      .limit(6),
+  ]);
 
-function Compensation() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-      <Card>
-        <div style={{ display: "flex", gap: 40 }}>
-          <Stat label="Base salary" value={P.salary} hint={P.currency} />
-          <Stat label="Equity" value={P.equity} />
-          <Stat label="Pay group" value="US Semi-monthly" mono={false} />
-        </div>
-      </Card>
-      <Card title="Compensation history" padding="0">
-        <Table
-          rowKey="date"
-          columns={[
-            { key: "date", label: "Effective", mono: true },
-            { key: "event", label: "Event" },
-            { key: "amount", label: "Amount", mono: true, align: "right" },
-            { key: "by", label: "Approved by" },
-          ]}
-          rows={P.compHistory}
-        />
-      </Card>
-    </div>
-  );
-}
+  const latest = comp?.[0];
+  const components = (latest?.components ?? {}) as Record<string, string>;
+  const status = WORKER_STATUS[worker.status] ?? { label: worker.status, tone: "neutral" as const };
 
-export default function EmployeeProfile() {
-  const [tab, setTab] = React.useState("overview");
-  return (
-    <Page
-      eyebrow="Employees"
-      title={P.name}
-      actions={
-        <React.Fragment>
-          <Button variant="secondary" size="sm" icon={<Icon name="workflow" size={14} />}>Start workflow</Button>
-          <Button variant="primary" size="sm" icon={<Icon name="pencil" size={13} />}>Edit profile</Button>
-        </React.Fragment>
-      }
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Avatar name={P.name} size={56} status="online" />
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <h1 style={{ font: "var(--title-page)", color: "var(--text-1)" }}>{P.name}</h1>
-              <Badge tone="success" dot>Active</Badge>
-              <Badge tone="neutral" mono>{P.id}</Badge>
-            </div>
-            <span style={{ font: "var(--body-sm)", color: "var(--text-2)" }}>{P.role} · {P.dept} · {P.location}</span>
-          </div>
-        </div>
-        <Tabs
-          tabs={[
-            { value: "overview", label: "Overview" },
-            { value: "comp", label: "Compensation" },
-            { value: "docs", label: "Documents", count: P.documents.length },
-            { value: "devices", label: "Devices", count: P.devices.length },
-          ]}
-          value={tab}
-          onChange={setTab}
-        />
-        {tab === "overview" ? <Overview /> : null}
-        {tab === "comp" ? <Compensation /> : null}
-        {tab === "docs" ? <Documents /> : null}
-        {tab === "devices" ? <Devices /> : null}
-      </div>
-    </Page>
-  );
+  const data: ProfileData = {
+    name: worker.person?.full_name ?? "—",
+    number: worker.employee_number ?? "—",
+    role: worker.position?.title ?? "—",
+    level: worker.position?.level ?? components.level ?? "—",
+    dept: worker.org_unit?.name ?? "—",
+    location: worker.location?.name ?? "—",
+    entity: worker.entity?.name ?? "—",
+    manager: manager?.person?.full_name ?? "—",
+    type: worker.worker_type === "employee" ? "Full-time" : worker.worker_type,
+    email: worker.work_email ?? "—",
+    start: formatDate(worker.hired_on),
+    status: status.label,
+    statusTone: status.tone,
+    salary: latest?.base_amount != null ? formatMoney(Number(latest.base_amount), latest.currency ?? "USD") : "—",
+    salaryHint: latest ? `${latest.currency ?? ""} / ${latest.frequency === "annual" ? "yr" : latest.frequency}` : "",
+    equity: components.equity ?? "—",
+    compHistory: (comp ?? []).map((c) => ({
+      date: formatDate(c.effective_date),
+      event: COMP_EVENT[c.event] ?? c.event,
+      amount: c.base_amount != null ? formatMoney(Number(c.base_amount), c.currency ?? "USD") : "—",
+      by: ((c.components ?? {}) as Record<string, string>).approved_by_label ?? "—",
+    })),
+    documents: (docs ?? []).map((d) => {
+      const ds = DOCUMENT_STATUS[d.status] ?? { label: d.status, tone: "neutral" as const };
+      return {
+        id: d.id,
+        name: d.name,
+        kind: d.kind.charAt(0).toUpperCase() + d.kind.slice(1),
+        date: formatDate(d.created_at),
+        status: ds.label,
+        tone: ds.tone,
+      };
+    }),
+    activity: (activity ?? []).map((a) => ({
+      when: relativeTime(a.created_at),
+      who: a.actor_label,
+      what: a.action,
+    })),
+  };
+
+  return <Profile data={data} />;
 }
