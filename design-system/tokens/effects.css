@@ -1,0 +1,34 @@
+/* Tenkara HCM — radii, shadows, motion, focus.
+   Shadows are whisper-quiet in light mode; dark mode relies on borders
+   and surface steps instead of shadows. */
+
+:root {
+  /* ---- Radii ---- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;    /* default control/card */
+  --radius-lg: 12px;   /* large cards, dialogs */
+  --radius-xl: 16px;   /* marketing panels */
+  --radius-full: 999px;
+
+  /* ---- Shadows ---- */
+  --shadow-xs: 0 1px 2px rgba(39, 30, 18, 0.05);
+  --shadow-sm: 0 1px 3px rgba(39, 30, 18, 0.07), 0 1px 2px rgba(39, 30, 18, 0.04);
+  --shadow-md: 0 4px 12px rgba(39, 30, 18, 0.08), 0 1px 3px rgba(39, 30, 18, 0.05);
+  --shadow-lg: 0 12px 32px rgba(39, 30, 18, 0.14), 0 2px 6px rgba(39, 30, 18, 0.06);
+  --shadow-focus: 0 0 0 3px var(--accent-subtle);
+
+  /* ---- Motion ---- */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+  --ease-in-out: cubic-bezier(0.45, 0, 0.2, 1); /* @kind other */
+  --duration-fast: 120ms; /* @kind other */
+  --duration-base: 180ms; /* @kind other */
+  --duration-slow: 280ms; /* @kind other */
+}
+
+[data-theme="dark"] {
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.6);
+}

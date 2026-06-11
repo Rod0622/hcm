@@ -1,0 +1,46 @@
+<!-- @dsCard group="Colors" viewport="700x190" name="Surfaces — three themes" subtitle="Light (default) · warm beige [data-theme=warm] · dark charcoal [data-theme=dark]" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 0; }
+  .third { padding: 14px 16px; background: var(--bg-base); display: flex; flex-direction: column; gap: 8px; }
+  .card { background: var(--bg-surface); border: 1px solid var(--border-1); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; }
+  .t1 { font: var(--title-card); color: var(--text-1); }
+  .t2 { font: var(--body-sm); font-size: var(--text-2xs); color: var(--text-2); }
+  .row { display: flex; gap: 5px; }
+  .tok { flex: 1; height: 24px; border-radius: var(--radius-xs); border: 1px solid var(--border-1); display: flex; align-items: center; justify-content: center; font: var(--weight-medium) 8px/1 var(--font-mono); color: var(--text-3); }
+</style>
+</head>
+<body>
+  <div class="third">
+    <div class="card"><span class="t1">Light</span><span class="t2">default · white surfaces on warm off-white</span></div>
+    <div class="row">
+      <div class="tok" style="background: var(--bg-base)">base</div>
+      <div class="tok" style="background: var(--bg-surface)">surface</div>
+      <div class="tok" style="background: var(--bg-inset)">inset</div>
+      <div class="tok" style="background: var(--bg-selected)">selected</div>
+    </div>
+  </div>
+  <div class="third" data-theme="warm">
+    <div class="card"><span class="t1">Warm</span><span class="t2">cream cards on beige · brown text</span></div>
+    <div class="row">
+      <div class="tok" style="background: var(--bg-base)">base</div>
+      <div class="tok" style="background: var(--bg-surface)">surface</div>
+      <div class="tok" style="background: var(--bg-raised)">raised</div>
+      <div class="tok" style="background: var(--bg-selected)">selected</div>
+    </div>
+  </div>
+  <div class="third" data-theme="dark">
+    <div class="card"><span class="t1">Dark</span><span class="t2">warm charcoal · borders replace shadows</span></div>
+    <div class="row">
+      <div class="tok" style="background: var(--bg-base)">base</div>
+      <div class="tok" style="background: var(--bg-surface)">surface</div>
+      <div class="tok" style="background: var(--bg-raised)">raised</div>
+      <div class="tok" style="background: var(--bg-selected)">selected</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,28 @@
+/* Tenkara HCM — base element styles. Minimal reset + sensible defaults. */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: var(--body-md);
+  letter-spacing: var(--tracking-normal);
+  color: var(--text-1);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1 { margin: 0; letter-spacing: var(--tracking-serif); }
+h2, h3, h4 { margin: 0; letter-spacing: var(--tracking-display); }
+p { margin: 0; }
+a { color: var(--text-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: var(--font-mono); }
+
+::selection { background: var(--accent-subtle); }
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus), 0 0 0 1px var(--border-focus);
+  border-radius: var(--radius-sm);
+}

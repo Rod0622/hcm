@@ -1,0 +1,33 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Status colors" subtitle="Meaning only, never decoration · always paired with a -subtle tint" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 18px 20px; background: var(--bg-base); }
+  .status { border: 1px solid var(--border-1); border-radius: var(--radius-md); background: var(--bg-surface); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 8px; border-radius: var(--radius-full); font: var(--weight-medium) var(--text-2xs)/1 var(--font-sans); align-self: flex-start; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .bar { height: 22px; border-radius: var(--radius-xs); display: flex; align-items: center; padding: 0 8px; font: var(--weight-medium) var(--text-2xs)/1 var(--font-mono); color: #fff; }
+</style>
+</head>
+<body>
+  <div class="status">
+    <span class="chip" style="background: var(--success-subtle); color: var(--success-text)"><span class="dot" style="background: var(--success)"></span>Active</span>
+    <div class="bar" style="background: var(--green-500)">--success</div>
+  </div>
+  <div class="status">
+    <span class="chip" style="background: var(--warning-subtle); color: var(--warning-text)"><span class="dot" style="background: var(--warning)"></span>Needs attention</span>
+    <div class="bar" style="background: var(--amber-500)">--warning</div>
+  </div>
+  <div class="status">
+    <span class="chip" style="background: var(--danger-subtle); color: var(--danger-text)"><span class="dot" style="background: var(--danger)"></span>Blocked</span>
+    <div class="bar" style="background: var(--red-500)">--danger</div>
+  </div>
+  <div class="status">
+    <span class="chip" style="background: var(--info-subtle); color: var(--info-text)"><span class="dot" style="background: var(--info)"></span>In review</span>
+    <div class="bar" style="background: var(--blue-500)">--info</div>
+  </div>
+</body>
+</html>

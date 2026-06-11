@@ -1,0 +1,24 @@
+<!-- @dsCard group="Brand" viewport="700x230" name="Voice & copy" subtitle="Sentence case · verb-first buttons · numbers are facts · no emoji, no exclamation marks" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 18px 24px; background: var(--bg-base); display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
+  .ex { display: flex; flex-direction: column; gap: 3px; padding: 9px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-1); background: var(--bg-surface); }
+  .yes { font: var(--body-sm); color: var(--text-1); display: flex; gap: 8px; }
+  .no { font: var(--body-sm); font-size: var(--text-xs); color: var(--text-3); text-decoration: line-through; display: flex; gap: 8px; }
+  .tick { color: var(--success); font-weight: 600; flex-shrink: 0; }
+  .cross { color: var(--text-3); flex-shrink: 0; }
+</style>
+</head>
+<body>
+  <div class="ex"><span class="yes"><span class="tick">✓</span>Run payroll</span><span class="no"><span class="cross">✗</span>Submit</span></div>
+  <div class="ex"><span class="yes"><span class="tick">✓</span>3 blockers need attention</span><span class="no"><span class="cross">✗</span>Oops! Something went wrong!</span></div>
+  <div class="ex"><span class="yes"><span class="tick">✓</span>Payroll submitted · 142 employees · $1.28M net</span><span class="no"><span class="cross">✗</span>Success! 🎉</span></div>
+  <div class="ex"><span class="yes"><span class="tick">✓</span>Delete workflow</span><span class="no"><span class="cross">✗</span>Are You Sure You Want To Delete?</span></div>
+  <div class="ex"><span class="yes"><span class="tick">✓</span>No compliance tasks. Country packs generate tasks automatically.</span><span class="no"><span class="cross">✗</span>Nothing to see here…</span></div>
+  <div class="ex"><span class="yes"><span class="tick">✓</span>Draft → In review → Approved → Processed</span><span class="no"><span class="cross">✗</span>Pending-ish states with cute names</span></div>
+</body>
+</html>

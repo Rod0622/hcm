@@ -1,0 +1,40 @@
+<!-- @dsCard group="Brand" viewport="700x170" name="Iconography" subtitle="Lucide outline · 1.5px stroke · 14/16/20px · currentColor only · status dots over status icons" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<script src="https://unpkg.com/lucide@0.453.0/dist/umd/lucide.min.js"></script>
+<style>
+  body { padding: 20px 24px; background: var(--bg-base); display: flex; align-items: center; gap: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(9, 34px); gap: 8px; }
+  .cell { width: 34px; height: 34px; border-radius: var(--radius-sm); border: 1px solid var(--border-1); background: var(--bg-surface); display: flex; align-items: center; justify-content: center; color: var(--text-2); }
+  .note { font: var(--body-sm); color: var(--text-2); max-width: 240px; }
+  .note b { color: var(--text-1); font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <span class="cell"><i data-lucide="users"></i></span>
+    <span class="cell"><i data-lucide="git-fork"></i></span>
+    <span class="cell"><i data-lucide="banknote"></i></span>
+    <span class="cell"><i data-lucide="shield-check"></i></span>
+    <span class="cell"><i data-lucide="workflow"></i></span>
+    <span class="cell"><i data-lucide="clock"></i></span>
+    <span class="cell"><i data-lucide="file-text"></i></span>
+    <span class="cell"><i data-lucide="laptop"></i></span>
+    <span class="cell"><i data-lucide="sparkles"></i></span>
+    <span class="cell"><i data-lucide="building-2"></i></span>
+    <span class="cell"><i data-lucide="chart-no-axes-column"></i></span>
+    <span class="cell"><i data-lucide="settings-2"></i></span>
+    <span class="cell"><i data-lucide="search"></i></span>
+    <span class="cell"><i data-lucide="list-filter"></i></span>
+    <span class="cell"><i data-lucide="download"></i></span>
+    <span class="cell"><i data-lucide="history"></i></span>
+    <span class="cell"><i data-lucide="circle-check"></i></span>
+    <span class="cell"><i data-lucide="triangle-alert"></i></span>
+  </div>
+  <p class="note"><b>Lucide</b> is the only icon system. 16px in controls and nav, 14px inline, 20px page-level. Never multicolored, never emoji, never hand-drawn SVG.</p>
+  <script>lucide.createIcons({ attrs: { width: 16, height: 16, "stroke-width": 1.5 } });</script>
+</body>
+</html>

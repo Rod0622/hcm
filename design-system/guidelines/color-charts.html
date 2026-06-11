@@ -1,0 +1,32 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Chart palette" subtitle="--chart-1…5 · 2px strokes, fills ≤12% opacity, no 3D" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { display: flex; align-items: center; gap: 24px; padding: 18px 24px; background: var(--bg-base); }
+  .bars { display: flex; align-items: flex-end; gap: 10px; height: 84px; }
+  .bar { width: 34px; border-radius: 4px 4px 2px 2px; }
+  .legend { display: flex; flex-direction: column; gap: 6px; }
+  .leg { display: flex; align-items: center; gap: 8px; font: var(--weight-medium) var(--text-xs)/1 var(--font-mono); color: var(--text-2); }
+  .leg i { width: 14px; height: 3px; border-radius: 2px; }
+</style>
+</head>
+<body>
+  <div class="bars">
+    <div class="bar" style="height: 78%; background: var(--chart-1)"></div>
+    <div class="bar" style="height: 92%; background: var(--chart-2)"></div>
+    <div class="bar" style="height: 55%; background: var(--chart-3)"></div>
+    <div class="bar" style="height: 68%; background: var(--chart-4)"></div>
+    <div class="bar" style="height: 42%; background: var(--chart-5)"></div>
+  </div>
+  <div class="legend">
+    <span class="leg"><i style="background: var(--chart-1)"></i>--chart-1 gold</span>
+    <span class="leg"><i style="background: var(--chart-2)"></i>--chart-2 olive</span>
+    <span class="leg"><i style="background: var(--chart-3)"></i>--chart-3 terracotta</span>
+    <span class="leg"><i style="background: var(--chart-4)"></i>--chart-4 plum</span>
+    <span class="leg"><i style="background: var(--chart-5)"></i>--chart-5 slate</span>
+  </div>
+</body>
+</html>

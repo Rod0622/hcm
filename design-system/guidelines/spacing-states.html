@@ -1,0 +1,29 @@
+<!-- @dsCard group="Spacing" viewport="700x170" name="Interactive states" subtitle="Hover = bg tint · press = darker · focus = 3px halo · 120–180ms ease-out" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 20px 24px; background: var(--bg-base); display: flex; align-items: center; gap: 14px; }
+  .st { display: flex; flex-direction: column; gap: 7px; align-items: center; }
+  .st span { font: var(--weight-medium) var(--text-2xs)/1 var(--font-mono); color: var(--text-3); }
+  .btn { height: var(--control-md); padding: 0 12px; display: inline-flex; align-items: center; border-radius: var(--radius-md); font: var(--weight-medium) var(--text-sm)/1 var(--font-sans); background: var(--bg-surface); border: 1px solid var(--border-1); box-shadow: var(--shadow-xs); color: var(--text-1); }
+  .row-demo { flex: 1; border: 1px solid var(--border-1); border-radius: var(--radius-md); background: var(--bg-surface); overflow: hidden; }
+  .r { height: 34px; display: flex; align-items: center; padding: 0 12px; font: var(--body-sm); color: var(--text-1); border-bottom: 1px solid var(--border-1); }
+  .r:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+  <div class="st"><button class="btn">Default</button><span>rest</span></div>
+  <div class="st"><button class="btn" style="background: var(--bg-hover)">Hover</button><span>--bg-hover</span></div>
+  <div class="st"><button class="btn" style="background: var(--bg-active)">Press</button><span>--bg-active</span></div>
+  <div class="st"><button class="btn" style="box-shadow: var(--shadow-focus), 0 0 0 1px var(--border-focus)">Focus</button><span>halo + ring</span></div>
+  <div class="st"><button class="btn" style="opacity: 0.5">Disabled</button><span>50%</span></div>
+  <div class="row-demo">
+    <div class="r">Row at rest</div>
+    <div class="r" style="background: var(--bg-hover)">Row hover</div>
+    <div class="r" style="background: var(--bg-selected)">Row selected</div>
+  </div>
+</body>
+</html>

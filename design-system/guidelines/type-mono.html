@@ -1,0 +1,27 @@
+<!-- @dsCard group="Type" viewport="700x170" name="Mono — data voice" subtitle="Geist Mono for money, IDs, dates-in-tables and code, always" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { padding: 20px 24px; background: var(--bg-base); display: flex; align-items: center; gap: 28px; }
+  .stat { display: flex; flex-direction: column; gap: 6px; }
+  .stat .l { font: var(--label-caps); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--text-3); }
+  .stat .v { font: var(--weight-semibold) var(--text-2xl)/1.1 var(--font-mono); letter-spacing: -0.02em; color: var(--text-1); }
+  .rows { display: flex; flex-direction: column; gap: 8px; border-left: 1px solid var(--border-1); padding-left: 28px; }
+  .kv { display: flex; gap: 14px; font-size: var(--text-sm); }
+  .kv .k { font: var(--body-sm); color: var(--text-2); width: 90px; }
+  .kv .v { font: var(--data-md); color: var(--text-1); }
+</style>
+</head>
+<body>
+  <div class="stat"><span class="l">Net pay</span><span class="v">$1,284,302.18</span></div>
+  <div class="stat"><span class="l">Headcount</span><span class="v">142</span></div>
+  <div class="rows">
+    <div class="kv"><span class="k">Employee ID</span><span class="v">EMP-0142</span></div>
+    <div class="kv"><span class="k">Pay period</span><span class="v">2026-03-01 → 2026-03-15</span></div>
+    <div class="kv"><span class="k">Tax ID</span><span class="v">83-1042967</span></div>
+  </div>
+</body>
+</html>

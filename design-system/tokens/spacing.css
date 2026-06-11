@@ -1,0 +1,34 @@
+/* Tenkara HCM — spacing & layout.
+   4px base grid. Density is "calm-compact": spacious page gutters,
+   compact data rows. */
+
+:root {
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* ---- Layout ---- */
+  --sidebar-width: 232px;
+  --topbar-height: 52px;
+  --page-gutter: var(--space-8);
+  --page-max-width: 1200px;
+  --content-narrow: 720px;
+
+  /* ---- Control heights ---- */
+  --control-sm: 28px;
+  --control-md: 32px;
+  --control-lg: 38px;
+
+  /* ---- Row heights ---- */
+  --row-compact: 36px;
+  --row-default: 44px;
+}
