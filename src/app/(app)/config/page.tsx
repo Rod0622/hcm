@@ -1,98 +1,98 @@
-"use client";
+import { createClient } from "@/lib/supabase/server";
+import { formatDate } from "@/lib/format";
+import { timeDoctorConfigured } from "@/lib/timedoctor";
+import { ConfigStudio, type ConfigData } from "./config-client";
 
-import * as React from "react";
-import { Page } from "@/components/app-shell";
-import { Icon, Card, Badge, Button, Table, Input, Select, Switch, Dialog, SideNavItem, SideNavSection } from "@/components/ui";
-import { fields } from "@/lib/data";
+export const dynamic = "force-dynamic";
 
-const AREAS = [
-  { id: "objects", label: "Objects & fields", icon: "database" },
-  { id: "forms", label: "Forms", icon: "clipboard-list" },
-  { id: "policies", label: "Policies", icon: "scale" },
-  { id: "payrollrules", label: "Payroll rules", icon: "calculator" },
-  { id: "roles", label: "Roles & permissions", icon: "lock-keyhole" },
-  { id: "integrations", label: "Integrations", icon: "plug" },
-  { id: "api", label: "API & webhooks", icon: "braces" },
-];
+const VISIBILITY_LABEL: Record<string, string> = {
+  everyone: "Everyone",
+  hr: "HR only",
+  finance: "Finance",
+  manager_chain: "Manager chain",
+  self: "Self",
+};
 
-const TYPE_ICONS: Record<string, string> = { Text: "type", Select: "list", Date: "calendar", Contact: "user", Reference: "link", Boolean: "toggle-left" };
+export default async function ConfigPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-export default function ConfigStudio() {
-  const [area, setArea] = React.useState("objects");
-  const [adding, setAdding] = React.useState(false);
-  return (
-    <Page
-      eyebrow="Platform"
-      title="Configuration studio"
-      actions={<Badge tone="accent">Sandbox</Badge>}
-      maxWidth="100%"
-    >
-      <div style={{ display: "grid", gridTemplateColumns: "208px 1fr", gap: "var(--space-5)", alignItems: "start" }}>
-        <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-1)", borderRadius: "var(--radius-lg)", padding: 8 }}>
-          <SideNavSection label="Configure">
-            {AREAS.map((a) => (
-              <SideNavItem key={a.id} icon={<Icon name={a.icon} size={16} />} label={a.label} active={area === a.id} onClick={() => setArea(a.id)} />
-            ))}
-          </SideNavSection>
-        </div>
+  const [
+    { data: membership },
+    { data: objects },
+    { data: fields },
+    { data: policies },
+    { data: members },
+    { data: workers },
+    { data: ruleSets },
+    { data: accounts },
+    { count: queuedEmails },
+  ] = await Promise.all([
+    supabase.from("tenant_users").select("tenant_id, role").eq("user_id", user!.id).limit(1).maybeSingle(),
+    supabase.from("object_definitions").select("id, key, label").order("label"),
+    supabase.from("field_definitions")
+      .select("id, key, label, field_type, required, visibility, object:object_definitions(label)")
+      .is("archived_at", null)
+      .order("position"),
+    supabase.from("leave_policies").select("id, country_code, leave_type, name, accrual_per_month").order("country_code"),
+    supabase.from("tenant_users").select("user_id, role, created_at").order("created_at"),
+    supabase.from("workers").select("user_id, work_email, person:people(full_name)").not("user_id", "is", null),
+    supabase.from("payroll_rule_sets").select("id, key, name, country_code, payroll_rule_versions(count)").order("name"),
+    supabase.from("integration_accounts").select("provider, status, connected_at"),
+    supabase.from("outbound_emails").select("id", { count: "exact", head: true }).eq("status", "queued"),
+  ]);
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-          {area === "objects" ? (
-            <React.Fragment>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <h1 style={{ font: "var(--title-section)", color: "var(--text-1)" }}>Custom fields</h1>
-                  <p style={{ font: "var(--body-sm)", color: "var(--text-3)", marginTop: 2 }}>Every object supports custom fields. Changes are versioned and effective-dated.</p>
-                </div>
-                <Select options={["Employee", "Worker", "Position", "Legal entity"]} style={{ width: 150 }} />
-                <Button variant="primary" size="sm" icon={<Icon name="plus" size={14} />} onClick={() => setAdding(true)}>Add field</Button>
-              </div>
-              <Card padding="0">
-                <Table
-                  compact
-                  rowKey="key"
-                  onRowClick={() => {}}
-                  columns={[
-                    { key: "name", label: "Field", render: (r) => <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Icon name={TYPE_ICONS[r.type] || "type"} size={14} color="var(--text-3)" />{r.name}</span> },
-                    { key: "key", label: "Key", mono: true },
-                    { key: "type", label: "Type", render: (r) => <Badge tone="neutral">{r.type}</Badge> },
-                    { key: "object", label: "Object" },
-                    { key: "required", label: "Required" },
-                    { key: "visibility", label: "Visible to" },
-                  ]}
-                  rows={fields}
-                />
-              </Card>
-            </React.Fragment>
-          ) : (
-            <Card>
-              <p style={{ font: "var(--body-sm)", color: "var(--text-3)" }}>
-                {AREAS.find((a) => a.id === area)!.label} is on the roadmap — see docs/BACKLOG.md for sequencing.
-              </p>
-            </Card>
-          )}
-        </div>
-      </div>
+  const workerByUser = new Map((workers ?? []).map((w) => [w.user_id!, w]));
 
-      <Dialog
-        open={adding}
-        onClose={() => setAdding(false)}
-        title="Add field"
-        description="Added to the Employee object in the sandbox environment."
-        footer={
-          <React.Fragment>
-            <Button variant="secondary" onClick={() => setAdding(false)}>Cancel</Button>
-            <Button variant="primary" onClick={() => setAdding(false)}>Add field</Button>
-          </React.Fragment>
-        }
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Input label="Field name" placeholder="e.g. Certification expiry" />
-          <Select label="Type" options={["Text", "Select", "Date", "Number", "Boolean", "Contact", "Reference"]} />
-          <Select label="Visible to" options={["Everyone", "HR only", "Finance", "Manager chain"]} />
-          <Switch label="Required" />
-        </div>
-      </Dialog>
-    </Page>
-  );
+  const data: ConfigData = {
+    tenantId: membership?.tenant_id ?? "",
+    currentUserId: user!.id,
+    objects: (objects ?? []).map((o) => ({ id: o.id, key: o.key, label: o.label })),
+    fields: (fields ?? []).map((f) => ({
+      id: f.id,
+      key: f.key,
+      label: f.label,
+      type: f.field_type.charAt(0).toUpperCase() + f.field_type.slice(1).replace("_", " "),
+      object: f.object?.label ?? "—",
+      required: f.required === "no" ? "No" : f.required === "yes" ? "Yes" : "Conditional",
+      visibility: VISIBILITY_LABEL[f.visibility] ?? f.visibility,
+    })),
+    policies: (policies ?? []).map((p) => ({
+      id: p.id,
+      country: p.country_code,
+      type: p.leave_type.toUpperCase(),
+      name: p.name,
+      rate: Number(p.accrual_per_month),
+    })),
+    members: (members ?? []).map((m) => {
+      const w = workerByUser.get(m.user_id);
+      return {
+        userId: m.user_id,
+        name: w?.person?.full_name ?? "Unlinked user",
+        email: w?.work_email ?? m.user_id.slice(0, 8) + "…",
+        role: m.role,
+        since: formatDate(m.created_at),
+      };
+    }),
+    ruleSets: (ruleSets ?? []).map((r) => ({
+      id: r.id,
+      key: r.key,
+      name: r.name,
+      country: r.country_code ?? "—",
+      versions: r.payroll_rule_versions?.[0]?.count ?? 0,
+    })),
+    integrations: {
+      timedoctor: timeDoctorConfigured(),
+      resend: !!process.env.RESEND_API_KEY,
+      queuedEmails: queuedEmails ?? 0,
+      accounts: (accounts ?? []).map((a) => ({
+        provider: a.provider,
+        status: a.status,
+        connected: a.connected_at ? formatDate(a.connected_at) : null,
+      })),
+    },
+    restUrl: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`,
+  };
+
+  return <ConfigStudio data={data} />;
 }
