@@ -13,6 +13,7 @@ const NAV: Array<{ section: string; items: Array<{ href: string; label: string; 
   ]},
   { section: "Workforce", items: [
     { href: "/employees", label: "Employees", icon: "users", count: 142 },
+    { href: "/recruiting", label: "Recruiting", icon: "briefcase" },
     { href: "/orgchart", label: "Org chart", icon: "git-fork" },
     { href: "/entities", label: "Legal entities", icon: "building-2", count: 3 },
   ]},

@@ -14,6 +14,76 @@ export type Database = {
   }
   public: {
     Tables: {
+      applications: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          id: string
+          matched_keywords: Json
+          missing_keywords: Json
+          opening_id: string
+          resume_filename: string | null
+          resume_path: string | null
+          resume_text: string | null
+          score: number | null
+          status: string
+          tenant_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          id?: string
+          matched_keywords?: Json
+          missing_keywords?: Json
+          opening_id: string
+          resume_filename?: string | null
+          resume_path?: string | null
+          resume_text?: string | null
+          score?: number | null
+          status?: string
+          tenant_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          id?: string
+          matched_keywords?: Json
+          missing_keywords?: Json
+          opening_id?: string
+          resume_filename?: string | null
+          resume_path?: string | null
+          resume_text?: string | null
+          score?: number | null
+          status?: string
+          tenant_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_opening_id_fkey"
+            columns: ["opening_id"]
+            isOneToOne: false
+            referencedRelation: "job_openings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approvals: {
         Row: {
           assignee_rule: string | null
@@ -133,6 +203,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "audit_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidates: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          phone: string | null
+          source: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          phone?: string | null
+          source?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          phone?: string | null
+          source?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidates_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -615,6 +723,80 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "integration_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_openings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          headcount: number
+          id: string
+          keywords: Json
+          legal_entity_id: string | null
+          location_id: string | null
+          org_unit_id: string | null
+          status: string
+          tenant_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          headcount?: number
+          id?: string
+          keywords?: Json
+          legal_entity_id?: string | null
+          location_id?: string | null
+          org_unit_id?: string | null
+          status?: string
+          tenant_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          headcount?: number
+          id?: string
+          keywords?: Json
+          legal_entity_id?: string | null
+          location_id?: string | null
+          org_unit_id?: string | null
+          status?: string
+          tenant_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_openings_legal_entity_id_fkey"
+            columns: ["legal_entity_id"]
+            isOneToOne: false
+            referencedRelation: "legal_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_openings_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_openings_org_unit_id_fkey"
+            columns: ["org_unit_id"]
+            isOneToOne: false
+            referencedRelation: "org_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_openings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

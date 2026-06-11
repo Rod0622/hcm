@@ -209,3 +209,29 @@ insert into public.audit_events (tenant_id, actor_label, action, object_type, ob
   ('11111111-1111-1111-1111-111111111111','Nora Vance','Added to pay group US Semi-monthly, effective Jun 1','workers','aa000000-0000-0000-0000-000000000001','payroll', now() - interval '1 day'),
   ('11111111-1111-1111-1111-111111111111','Tom Okafor','Approved equipment request DEV-2201','workers','aa000000-0000-0000-0000-000000000001','approvals', timestamptz '2026-06-08 11:30+00'),
   ('11111111-1111-1111-1111-111111111111','Mia Chen','Signed Form W-4 · source: employee portal','workers','aa000000-0000-0000-0000-000000000001','portal', timestamptz '2026-05-28 09:00+00');
+
+-- ---------- Recruiting ----------
+insert into public.job_openings (id, tenant_id, org_unit_id, location_id, legal_entity_id, title, description, status, headcount, keywords, created_by) values
+  ('0e000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','06000000-0000-0000-0000-000000000001',
+   '10c00000-0000-0000-0000-000000000001','e1000000-0000-0000-0000-000000000001',
+   'Senior Frontend Engineer','Own the design-system-driven product surfaces across the HCM suite.','open',1,
+   '[{"term":"react","weight":3,"required":true,"aliases":["reactjs","react.js"]},
+     {"term":"typescript","weight":3,"required":true,"aliases":["ts"]},
+     {"term":"next.js","weight":2,"aliases":["nextjs","next js"]},
+     {"term":"css","weight":1,"aliases":["tailwind","scss"]},
+     {"term":"graphql","weight":1},
+     {"term":"testing","weight":1,"aliases":["jest","playwright","cypress","vitest"]},
+     {"term":"node.js","weight":1,"aliases":["nodejs","node"]},
+     {"term":"accessibility","weight":1,"aliases":["a11y","wcag"]}]',
+   'aaaaaaaa-0000-0000-0000-000000000002'),
+  ('0e000000-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','06000000-0000-0000-0000-000000000002',
+   '10c00000-0000-0000-0000-000000000003','e1000000-0000-0000-0000-000000000001',
+   'Payroll Specialist','Run multi-state US payroll and own statutory filings end to end.','open',1,
+   '[{"term":"payroll","weight":3,"required":true},
+     {"term":"multi-state","weight":2,"aliases":["multi state","multistate"]},
+     {"term":"tax","weight":2,"aliases":["941","tax filing","withholding"]},
+     {"term":"compliance","weight":2},
+     {"term":"excel","weight":1,"aliases":["google sheets","spreadsheets"]},
+     {"term":"adp","weight":1,"aliases":["workday","gusto","rippling"]},
+     {"term":"garnishment","weight":1,"aliases":["garnishments"]}]',
+   'aaaaaaaa-0000-0000-0000-000000000002');
