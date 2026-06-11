@@ -5,34 +5,38 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon, SideNavItem, SideNavSection, Avatar, IconButton, EmptyState } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
-import { user } from "@/lib/data";
 
-const NAV: Array<{ section: string; items: Array<{ href: string; label: string; icon: string; count?: number }> }> = [
+const NAV: Array<{ section: string; items: Array<{ href: string; label: string; icon: string; count?: number; adminOnly?: boolean }> }> = [
   { section: "", items: [
     { href: "/dashboard", label: "Home", icon: "house" },
     { href: "/inbox", label: "Inbox", icon: "inbox" },
   ]},
   { section: "Workforce", items: [
-    { href: "/employees", label: "Employees", icon: "users", count: 142 },
-    { href: "/recruiting", label: "Recruiting", icon: "briefcase" },
+    { href: "/employees", label: "Employees", icon: "users" },
+    { href: "/recruiting", label: "Recruiting", icon: "briefcase", adminOnly: true },
     { href: "/orgchart", label: "Org chart", icon: "git-fork" },
-    { href: "/entities", label: "Legal entities", icon: "building-2", count: 3 },
+    { href: "/entities", label: "Legal entities", icon: "building-2", adminOnly: true },
   ]},
   { section: "Operations", items: [
     { href: "/payroll", label: "Payroll", icon: "banknote" },
-    { href: "/compliance", label: "Compliance", icon: "shield-check", count: 3 },
+    { href: "/compliance", label: "Compliance", icon: "shield-check", adminOnly: true },
     { href: "/time", label: "Time & leave", icon: "clock" },
   ]},
   { section: "Platform", items: [
-    { href: "/workflows", label: "Workflows", icon: "workflow" },
-    { href: "/analytics", label: "Analytics", icon: "chart-no-axes-column" },
-    { href: "/config", label: "Configuration", icon: "settings-2" },
+    { href: "/workflows", label: "Workflows", icon: "workflow", adminOnly: true },
+    { href: "/analytics", label: "Analytics", icon: "chart-no-axes-column", adminOnly: true },
+    { href: "/config", label: "Configuration", icon: "settings-2", adminOnly: true },
   ]},
 ];
 
 type Theme = "light" | "warm" | "dark";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, displayName = "User", role = "member", isAdmin = false }: {
+  children: React.ReactNode;
+  displayName?: string;
+  role?: string;
+  isAdmin?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [theme, setThemeRaw] = React.useState<Theme>("dark");
@@ -96,7 +100,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span style={{ flex: 1, textAlign: "left" }}>Search</span>
           <span style={{ font: "var(--weight-medium) var(--text-2xs)/1 var(--font-mono)", border: "1px solid var(--border-1)", borderRadius: 4, padding: "3px 4px" }}>⌘K</span>
         </button>
-        {NAV.map((group, gi) => (
+        {NAV.map((group) => ({ ...group, items: group.items.filter((it) => isAdmin || !it.adminOnly) }))
+          .filter((group) => group.items.length > 0)
+          .map((group, gi) => (
           <SideNavSection key={gi} label={group.section || undefined}>
             {group.items.map((it) => (
               <SideNavItem
@@ -119,10 +125,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => router.push("/ai")}
           />
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 8px 2px" }}>
-            <Avatar name={user.name} size={24} status="online" />
+            <Avatar name={displayName} size={24} status="online" />
             <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
-              <span style={{ font: "var(--label-md)", fontSize: "var(--text-xs)", color: "var(--text-1)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</span>
-              <span style={{ font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--text-3)" }}>Admin</span>
+              <span style={{ font: "var(--label-md)", fontSize: "var(--text-xs)", color: "var(--text-1)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</span>
+              <span style={{ font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--text-3)", textTransform: "capitalize" }}>{role}</span>
             </div>
             <IconButton
               label={`Theme: ${theme} — click to switch`}

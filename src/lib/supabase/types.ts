@@ -1633,6 +1633,13 @@ export type Database = {
             foreignKeyName: "payroll_line_items_line_id_fkey"
             columns: ["line_id"]
             isOneToOne: false
+            referencedRelation: "my_payslips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_line_items_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
             referencedRelation: "payroll_run_lines"
             referencedColumns: ["id"]
           },
@@ -2705,6 +2712,32 @@ export type Database = {
       }
     }
     Views: {
+      my_payslips: {
+        Row: {
+          currency: string | null
+          deductions: number | null
+          gross: number | null
+          id: string | null
+          net: number | null
+          pay_date: string | null
+          pay_group: string | null
+          period_end: string | null
+          period_start: string | null
+          run_status: string | null
+          taxes: number | null
+          tenant_id: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_run_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pto_balances: {
         Row: {
           accrual_per_month: number | null

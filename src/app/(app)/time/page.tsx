@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getAccess } from "@/lib/access";
 import { formatDate } from "@/lib/format";
 import { TimeLeave, type ApprovalRow, type BalanceRow, type RequestRow } from "./time-client";
 
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function TimeLeavePage() {
   const supabase = await createClient();
+  const access = await getAccess();
   const { data: { user } } = await supabase.auth.getUser();
 
   const { data: me } = await supabase
@@ -86,6 +88,7 @@ export default async function TimeLeavePage() {
       myRequests={requestRows}
       approvals={approvalRows}
       teamBalances={balanceRows}
+      isAdmin={access?.isAdmin ?? false}
     />
   );
 }

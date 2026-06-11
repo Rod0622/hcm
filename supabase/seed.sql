@@ -291,3 +291,27 @@ insert into public.software_apps (id, tenant_id, key, name, category, sso) value
   ('a9000000-0000-0000-0000-000000000008','11111111-1111-1111-1111-111111111111','1password','1Password','Security',true),
   ('a9000000-0000-0000-0000-000000000009','11111111-1111-1111-1111-111111111111','quickbooks','QuickBooks','Finance',false),
   ('a9000000-0000-0000-0000-000000000010','11111111-1111-1111-1111-111111111111','tenkara_hcm','Tenkara HCM','HR',true);
+
+-- ---------- Member-level demo login ----------
+-- mia@trytenkara.com (role: member) — sees only her own pay, leave, docs.
+insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change, email_change_token_new)
+values
+  ('00000000-0000-0000-0000-000000000000','aaaaaaaa-0000-0000-0000-000000000003','authenticated','authenticated',
+   'mia@trytenkara.com', extensions.crypt('TenkaraDemo2026!', extensions.gen_salt('bf')), now(),
+   '{"provider":"email","providers":["email"]}','{"full_name":"Mia Chen"}', now(), now(), '', '', '', '')
+on conflict (id) do nothing;
+
+insert into auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+values
+  (gen_random_uuid(),'aaaaaaaa-0000-0000-0000-000000000003','aaaaaaaa-0000-0000-0000-000000000003',
+   '{"sub":"aaaaaaaa-0000-0000-0000-000000000003","email":"mia@trytenkara.com","email_verified":true}','email', now(), now(), now())
+on conflict (provider_id, provider) do nothing;
+
+insert into public.tenant_users (tenant_id, user_id, role) values
+  ('11111111-1111-1111-1111-111111111111','aaaaaaaa-0000-0000-0000-000000000003','member')
+on conflict do nothing;
+
+update public.workers set user_id = 'aaaaaaaa-0000-0000-0000-000000000003'
+  where id = 'aa000000-0000-0000-0000-000000000001';

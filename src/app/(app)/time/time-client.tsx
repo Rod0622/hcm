@@ -135,12 +135,13 @@ function RequestDialog({ open, onClose, me, balance }: {
   );
 }
 
-export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances }: {
+export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances, isAdmin }: {
   me: Me | null;
   myBalance: BalanceRow | null;
   myRequests: RequestRow[];
   approvals: ApprovalRow[];
   teamBalances: BalanceRow[];
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -267,6 +268,7 @@ export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances }
           </Card>
         ) : null}
 
+        {isAdmin ? (
         <Card title="PTO ledger" subtitle="Accrual-policy employees · 0.5 day/month for PH" padding="0">
           {teamBalances.length === 0 ? (
             <EmptyState
@@ -297,6 +299,7 @@ export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances }
             />
           )}
         </Card>
+        ) : null}
       </div>
       {me ? <RequestDialog open={dialogOpen} onClose={() => setDialogOpen(false)} me={me} balance={myBalance} /> : null}
     </Page>

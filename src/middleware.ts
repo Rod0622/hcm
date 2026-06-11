@@ -42,6 +42,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Admin-only sections; RLS is the real boundary, this keeps the UX clean.
+  const ADMIN_PATHS = ["/recruiting", "/compliance", "/workflows", "/config", "/analytics", "/entities", "/api/recruiting"];
+  if (user && ADMIN_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+    const { data: membership } = await supabase
+      .from("tenant_users")
+      .select("role")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    const isAdmin = !!membership && ["owner", "admin", "hr", "finance"].includes(membership.role);
+    if (!isAdmin) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+  }
+
   return response;
 }
 
