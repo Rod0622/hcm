@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_grants: {
+        Row: {
+          app_id: string
+          application_id: string | null
+          candidate_id: string
+          created_at: string
+          granted_by: string | null
+          id: string
+          provisioned_at: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          app_id: string
+          application_id?: string | null
+          candidate_id: string
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          provisioned_at?: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          app_id?: string
+          application_id?: string | null
+          candidate_id?: string
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          provisioned_at?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_grants_app_id_fkey"
+            columns: ["app_id"]
+            isOneToOne: false
+            referencedRelation: "software_apps"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_grants_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_grants_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_grants_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       applications: {
         Row: {
           candidate_id: string
@@ -1125,6 +1190,75 @@ export type Database = {
           },
         ]
       }
+      offers: {
+        Row: {
+          application_id: string
+          base_amount: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          frequency: string
+          id: string
+          notes: string | null
+          sent_at: string
+          signed_at: string | null
+          signed_doc_path: string | null
+          signed_filename: string | null
+          start_date: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          application_id: string
+          base_amount: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          frequency?: string
+          id?: string
+          notes?: string | null
+          sent_at?: string
+          signed_at?: string | null
+          signed_doc_path?: string | null
+          signed_filename?: string | null
+          start_date?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          application_id?: string
+          base_amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          frequency?: string
+          id?: string
+          notes?: string | null
+          sent_at?: string
+          signed_at?: string | null
+          signed_doc_path?: string | null
+          signed_filename?: string | null
+          start_date?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offers_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_units: {
         Row: {
           code: string | null
@@ -1163,6 +1297,79 @@ export type Database = {
           },
           {
             foreignKeyName: "org_units_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outbound_emails: {
+        Row: {
+          application_id: string | null
+          body: string
+          candidate_id: string | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          kind: string
+          sent_at: string | null
+          status: string
+          subject: string
+          tenant_id: string
+          to_email: string
+          to_name: string | null
+        }
+        Insert: {
+          application_id?: string | null
+          body: string
+          candidate_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          kind?: string
+          sent_at?: string | null
+          status?: string
+          subject: string
+          tenant_id: string
+          to_email: string
+          to_name?: string | null
+        }
+        Update: {
+          application_id?: string | null
+          body?: string
+          candidate_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          kind?: string
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          tenant_id?: string
+          to_email?: string
+          to_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbound_emails_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outbound_emails_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outbound_emails_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1849,6 +2056,44 @@ export type Database = {
           },
           {
             foreignKeyName: "positions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      software_apps: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          key: string
+          name: string
+          sso: boolean
+          tenant_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          key: string
+          name: string
+          sso?: boolean
+          tenant_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          key?: string
+          name?: string
+          sso?: boolean
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "software_apps_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import type { OpeningKeyword } from "@/lib/ats";
 import { OpeningDetail, type ApplicantRow, type OpeningData } from "./opening";
 
@@ -27,13 +27,32 @@ export default async function OpeningPage({ params }: { params: Promise<{ id: st
     .from("applications")
     .select(`
       id, status, score, matched_keywords, missing_keywords, resume_path, resume_filename, created_at,
-      candidate:candidates(full_name, email, phone)
+      candidate:candidates(id, full_name, email)
     `)
     .eq("opening_id", id)
     .order("score", { ascending: false, nullsFirst: false });
 
   const apps = applications ?? [];
-  const paths = apps.map((a) => a.resume_path).filter((p): p is string => !!p);
+  const appIds = apps.map((a) => a.id);
+
+  const { data: offers } = appIds.length
+    ? await supabase
+        .from("offers")
+        .select("id, application_id, base_amount, currency, frequency, start_date, status, signed_doc_path, signed_filename, sent_at")
+        .in("application_id", appIds)
+        .order("created_at", { ascending: false })
+    : { data: [] };
+
+  // Latest offer per application (results are newest-first).
+  const offerByApp = new Map<string, NonNullable<typeof offers>[number]>();
+  for (const o of offers ?? []) {
+    if (!offerByApp.has(o.application_id)) offerByApp.set(o.application_id, o);
+  }
+
+  const paths = [
+    ...apps.map((a) => a.resume_path),
+    ...[...offerByApp.values()].map((o) => o.signed_doc_path),
+  ].filter((p): p is string => !!p);
   const { data: signed } = paths.length
     ? await supabase.storage.from("resumes").createSignedUrls(paths, 3600)
     : { data: [] };
@@ -44,8 +63,10 @@ export default async function OpeningPage({ params }: { params: Promise<{ id: st
 
   const rows: ApplicantRow[] = apps.map((a) => {
     const missing = (a.missing_keywords ?? []) as string[];
+    const offer = offerByApp.get(a.id);
     return {
       id: a.id,
+      candidateId: a.candidate?.id ?? null,
       name: a.candidate?.full_name ?? "—",
       email: a.candidate?.email ?? "—",
       score: a.score != null ? Number(a.score) : null,
@@ -55,6 +76,15 @@ export default async function OpeningPage({ params }: { params: Promise<{ id: st
       uploaded: formatDate(a.created_at),
       resumeName: a.resume_filename,
       resumeUrl: a.resume_path ? urlByPath.get(a.resume_path) ?? null : null,
+      offer: offer
+        ? {
+            id: offer.id,
+            summary: `${formatMoney(Number(offer.base_amount), offer.currency)} / ${offer.frequency === "annual" ? "yr" : offer.frequency}`,
+            startDate: formatDate(offer.start_date),
+            status: offer.status,
+            signedUrl: offer.signed_doc_path ? urlByPath.get(offer.signed_doc_path) ?? null : null,
+          }
+        : null,
     };
   });
 

@@ -278,3 +278,16 @@ update public.leave_requests
 insert into public.leave_requests (id, tenant_id, worker_id, leave_type, start_date, end_date, days, reason, status, approver_worker_id) values
   ('1d000000-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','aa000000-0000-0000-0000-000000000003',
    'pto','2026-06-22','2026-06-26',5,'Hometown fiesta','pending','aa000000-0000-0000-0000-000000000005');
+
+-- ---------- Software access catalog (SSO-ready) ----------
+insert into public.software_apps (id, tenant_id, key, name, category, sso) values
+  ('a9000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','google_workspace','Google Workspace','Email & docs',true),
+  ('a9000000-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','slack','Slack','Communication',true),
+  ('a9000000-0000-0000-0000-000000000003','11111111-1111-1111-1111-111111111111','github','GitHub','Engineering',true),
+  ('a9000000-0000-0000-0000-000000000004','11111111-1111-1111-1111-111111111111','jira','Jira','Project management',true),
+  ('a9000000-0000-0000-0000-000000000005','11111111-1111-1111-1111-111111111111','notion','Notion','Knowledge base',true),
+  ('a9000000-0000-0000-0000-000000000006','11111111-1111-1111-1111-111111111111','figma','Figma','Design',true),
+  ('a9000000-0000-0000-0000-000000000007','11111111-1111-1111-1111-111111111111','zoom','Zoom','Communication',true),
+  ('a9000000-0000-0000-0000-000000000008','11111111-1111-1111-1111-111111111111','1password','1Password','Security',true),
+  ('a9000000-0000-0000-0000-000000000009','11111111-1111-1111-1111-111111111111','quickbooks','QuickBooks','Finance',false),
+  ('a9000000-0000-0000-0000-000000000010','11111111-1111-1111-1111-111111111111','tenkara_hcm','Tenkara HCM','HR',true);

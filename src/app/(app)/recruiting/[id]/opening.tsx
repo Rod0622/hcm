@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/app-shell";
-import { Icon, Card, Badge, Button, Table, Stat, EmptyState, IconButton, type BadgeTone } from "@/components/ui";
+import { Icon, Card, Badge, Button, Table, Input, Select, Stat, EmptyState, IconButton, Dialog, type BadgeTone } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { SCREEN_THRESHOLD, type OpeningKeyword } from "@/lib/ats";
 
@@ -20,6 +21,7 @@ export type OpeningData = {
 
 export type ApplicantRow = {
   id: string;
+  candidateId: string | null;
   name: string;
   email: string;
   score: number | null;
@@ -29,16 +31,27 @@ export type ApplicantRow = {
   uploaded: string;
   resumeName: string | null;
   resumeUrl: string | null;
+  offer: {
+    id: string;
+    summary: string;
+    startDate: string;
+    status: string;
+    signedUrl: string | null;
+  } | null;
 };
 
 const APP_STATUS: Record<string, { label: string; tone: BadgeTone }> = {
   new: { label: "New", tone: "info" },
   shortlisted: { label: "Shortlisted", tone: "success" },
   interviewing: { label: "Interviewing", tone: "info" },
-  offer: { label: "Offer", tone: "warning" },
+  offer: { label: "Offer · awaiting signature", tone: "warning" },
   hired: { label: "Hired", tone: "success" },
   rejected: { label: "Rejected", tone: "neutral" },
 };
+
+const IN_PLAY = ["new", "shortlisted", "interviewing"];
+const CURRENCIES = ["USD", "PHP", "SGD"];
+const FREQUENCIES = ["Annual", "Monthly", "Hourly"];
 
 function scoreColor(score: number) {
   if (score >= SCREEN_THRESHOLD) return "var(--success-text)";
@@ -129,12 +142,89 @@ function UploadZone({ openingId, onComplete }: { openingId: string; onComplete: 
   );
 }
 
+function OfferDialog({ applicant, onClose }: { applicant: ApplicantRow | null; onClose: () => void }) {
+  const router = useRouter();
+  const [amount, setAmount] = React.useState("");
+  const [currency, setCurrency] = React.useState("USD");
+  const [frequency, setFrequency] = React.useState("Annual");
+  const [startDate, setStartDate] = React.useState("");
+  const [notes, setNotes] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const submit = async () => {
+    if (!applicant) return;
+    const value = Number(amount.replace(/[, ]/g, ""));
+    if (!Number.isFinite(value) || value <= 0) {
+      setError("Enter a valid compensation amount.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const res = await fetch("/api/recruiting/offer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        applicationId: applicant.id,
+        amount: value,
+        currency,
+        frequency: frequency.toLowerCase(),
+        startDate: startDate || null,
+        notes: notes || null,
+      }),
+    });
+    const body = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      setError(body.error ?? "Could not create the offer");
+      return;
+    }
+    setAmount(""); setNotes(""); setStartDate("");
+    onClose();
+    router.refresh();
+  };
+
+  return (
+    <Dialog
+      open={!!applicant}
+      title={`Send offer — ${applicant?.name ?? ""}`}
+      description={`The offer email goes to ${applicant?.email ?? "the candidate"}; the application stays pending until you upload their signed offer.`}
+      onClose={onClose}
+      footer={
+        <React.Fragment>
+          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={submit} disabled={busy} icon={<Icon name="send" size={13} />}>
+            {busy ? "Sending…" : "Send offer"}
+          </Button>
+        </React.Fragment>
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "var(--space-3)" }}>
+          <Input label="Compensation" placeholder="e.g. 2400000" mono value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Select label="Currency" options={CURRENCIES} value={currency} onChange={(e) => setCurrency(e.target.value)} />
+          <Select label="Per" options={FREQUENCIES} value={frequency} onChange={(e) => setFrequency(e.target.value)} />
+        </div>
+        <Input label="Proposed start date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        <Input label="Notes for the email (optional)" placeholder="e.g. Includes HMO from day 1 and a signing bonus of ₱50,000" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        {error ? <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--danger)" }}>{error}</span> : null}
+      </div>
+    </Dialog>
+  );
+}
+
 export function OpeningDetail({ opening, applicants }: { opening: OpeningData; applicants: ApplicantRow[] }) {
   const router = useRouter();
-  const status = APP_STATUS[opening.status] ?? { label: opening.status, tone: "neutral" as BadgeTone };
+  const [offerTarget, setOfferTarget] = React.useState<ApplicantRow | null>(null);
+  const [rejectOpen, setRejectOpen] = React.useState(false);
+  const [rejectBusy, setRejectBusy] = React.useState(false);
+  const [signedFor, setSignedFor] = React.useState<string | null>(null);
+  const signedInputRef = React.useRef<HTMLInputElement>(null);
+
   const scored = applicants.filter((a) => a.score != null);
   const passing = scored.filter((a) => (a.score ?? 0) >= SCREEN_THRESHOLD).length;
   const avg = scored.length ? Math.round(scored.reduce((s, a) => s + (a.score ?? 0), 0) / scored.length) : 0;
+  const remaining = applicants.filter((a) => IN_PLAY.includes(a.status));
 
   const setStatus = async (id: string, value: string) => {
     const supabase = createClient();
@@ -142,12 +232,50 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
     router.refresh();
   };
 
+  const uploadSigned = async (file: File) => {
+    if (!signedFor) return;
+    const form = new FormData();
+    form.append("offerId", signedFor);
+    form.append("file", file);
+    const res = await fetch("/api/recruiting/offer/signed", { method: "POST", body: form });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      alert(body.error ?? "Could not upload the signed offer");
+    }
+    setSignedFor(null);
+    router.refresh();
+  };
+
+  const rejectRest = async () => {
+    setRejectBusy(true);
+    const res = await fetch("/api/recruiting/reject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ openingId: opening.id }),
+    });
+    setRejectBusy(false);
+    if (res.ok) {
+      setRejectOpen(false);
+      router.refresh();
+    }
+  };
+
   return (
-    <Page eyebrow="Recruiting" title={opening.title}>
+    <Page
+      eyebrow="Recruiting"
+      title={opening.title}
+      actions={
+        remaining.length > 0 ? (
+          <Button variant="secondary" size="sm" icon={<Icon name="mail-x" size={14} />} onClick={() => setRejectOpen(true)}>
+            Reject remaining & notify
+          </Button>
+        ) : null
+      }
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <h1 style={{ font: "var(--title-page)", color: "var(--text-1)" }}>{opening.title}</h1>
-          <Badge tone={opening.status === "open" ? "success" : "neutral"} dot>{opening.status === "open" ? "Open" : status.label}</Badge>
+          <Badge tone={opening.status === "open" ? "success" : "neutral"} dot>{opening.status === "open" ? "Open" : opening.status}</Badge>
           <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-3)" }}>
             {opening.dept} · {opening.location} · {opening.entity}
           </span>
@@ -171,7 +299,7 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
           </Card>
         </div>
 
-        <Card title="Applicants" subtitle="Ranked by keyword match score" padding="0">
+        <Card title="Applicants" subtitle="Ranked by keyword match score · click a name for full history" padding="0">
           {applicants.length === 0 ? (
             <EmptyState
               icon={<Icon name="users" size={18} />}
@@ -189,7 +317,13 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
                 )},
                 { key: "name", label: "Candidate", render: (r) => (
                   <span style={{ display: "flex", flexDirection: "column" }}>
-                    <span style={{ font: "var(--label-md)", fontSize: "var(--text-sm)", color: "var(--text-1)" }}>{r.name}</span>
+                    {r.candidateId ? (
+                      <Link href={`/recruiting/candidates/${r.candidateId}`} style={{ font: "var(--label-md)", fontSize: "var(--text-sm)", color: "var(--text-1)", textDecoration: "none" }}>
+                        {r.name}
+                      </Link>
+                    ) : (
+                      <span style={{ font: "var(--label-md)", fontSize: "var(--text-sm)", color: "var(--text-1)" }}>{r.name}</span>
+                    )}
                     <span style={{ font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--text-3)" }}>{r.email}</span>
                   </span>
                 )},
@@ -209,7 +343,17 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
                     {r.missingRequired.map((m) => <Badge key={m} tone="danger">missing: {m}</Badge>)}
                   </span>
                 )},
-                { key: "uploaded", label: "Received", mono: true },
+                { key: "offer", label: "Offer", render: (r) => (
+                  r.offer ? (
+                    <span style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={{ font: "var(--data-md)", fontSize: "var(--text-xs)", color: "var(--text-1)" }}>{r.offer.summary}</span>
+                      <span style={{ font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--text-3)" }}>
+                        {r.offer.status === "signed" ? "Signed" : `Starts ${r.offer.startDate}`}
+                      </span>
+                    </span>
+                  ) : <span style={{ color: "var(--text-3)" }}>—</span>
+                )},
+                { key: "uploaded", label: "Applied", mono: true },
                 { key: "status", label: "Status", render: (r) => {
                   const s = APP_STATUS[r.status] ?? { label: r.status, tone: "neutral" as BadgeTone };
                   return <Badge tone={s.tone} dot>{s.label}</Badge>;
@@ -221,15 +365,30 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
                         <IconButton label="Download resume"><Icon name="file-down" size={15} /></IconButton>
                       </a>
                     ) : null}
-                    {r.status !== "shortlisted" ? (
-                      <IconButton label="Shortlist" onClick={() => setStatus(r.id, "shortlisted")}>
-                        <Icon name="thumbs-up" size={15} />
+                    {IN_PLAY.includes(r.status) ? (
+                      <React.Fragment>
+                        <IconButton label="Send job offer" onClick={() => setOfferTarget(r)}>
+                          <Icon name="mail-plus" size={15} />
+                        </IconButton>
+                        {r.status !== "shortlisted" ? (
+                          <IconButton label="Shortlist" onClick={() => setStatus(r.id, "shortlisted")}>
+                            <Icon name="thumbs-up" size={15} />
+                          </IconButton>
+                        ) : null}
+                      </React.Fragment>
+                    ) : null}
+                    {r.status === "offer" && r.offer && r.offer.status === "sent" ? (
+                      <IconButton
+                        label="Upload signed offer"
+                        onClick={() => { setSignedFor(r.offer!.id); signedInputRef.current?.click(); }}
+                      >
+                        <Icon name="file-check" size={15} />
                       </IconButton>
                     ) : null}
-                    {r.status !== "rejected" ? (
-                      <IconButton label="Reject" onClick={() => setStatus(r.id, "rejected")}>
-                        <Icon name="thumbs-down" size={15} />
-                      </IconButton>
+                    {r.offer?.signedUrl ? (
+                      <a href={r.offer.signedUrl} target="_blank" rel="noreferrer" title="Signed offer">
+                        <IconButton label="Signed offer"><Icon name="file-badge" size={15} /></IconButton>
+                      </a>
                     ) : null}
                   </span>
                 )},
@@ -239,6 +398,43 @@ export function OpeningDetail({ opening, applicants }: { opening: OpeningData; a
           )}
         </Card>
       </div>
+
+      <input
+        ref={signedInputRef}
+        type="file"
+        accept=".pdf,.docx,.txt"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) uploadSigned(file);
+          e.target.value = "";
+        }}
+      />
+
+      <OfferDialog applicant={offerTarget} onClose={() => setOfferTarget(null)} />
+
+      <Dialog
+        open={rejectOpen}
+        title="Reject remaining candidates"
+        description={`${remaining.length} candidate(s) who are not in the offer stage will be marked rejected, and each receives an email letting them know we went with another candidate.`}
+        onClose={() => setRejectOpen(false)}
+        footer={
+          <React.Fragment>
+            <Button variant="secondary" size="sm" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button variant="danger" size="sm" onClick={rejectRest} disabled={rejectBusy}>
+              {rejectBusy ? "Sending…" : `Reject ${remaining.length} & send emails`}
+            </Button>
+          </React.Fragment>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {remaining.map((r) => (
+            <span key={r.id} style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-2)" }}>
+              {r.name} · {r.email}
+            </span>
+          ))}
+        </div>
+      </Dialog>
     </Page>
   );
 }
