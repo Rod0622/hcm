@@ -4,12 +4,13 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon, SideNavItem, SideNavSection, Avatar, IconButton, EmptyState } from "@/components/ui";
+import { createClient } from "@/lib/supabase/client";
 import { user } from "@/lib/data";
 
 const NAV: Array<{ section: string; items: Array<{ href: string; label: string; icon: string; count?: number }> }> = [
   { section: "", items: [
     { href: "/dashboard", label: "Home", icon: "house" },
-    { href: "/inbox", label: "Inbox", icon: "inbox", count: 4 },
+    { href: "/inbox", label: "Inbox", icon: "inbox" },
   ]},
   { section: "Workforce", items: [
     { href: "/employees", label: "Employees", icon: "users", count: 142 },
@@ -35,6 +36,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [theme, setThemeRaw] = React.useState<Theme>("dark");
+  const [inboxCount, setInboxCount] = React.useState(0);
+
+  React.useEffect(() => {
+    const supabase = createClient();
+    let active = true;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { count } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("recipient_user_id", user.id)
+        .eq("channel", "in_app")
+        .neq("status", "read");
+      if (active) setInboxCount(count ?? 0);
+    })();
+    return () => { active = false; };
+  }, [pathname]);
 
   React.useEffect(() => {
     const stored = (typeof window !== "undefined" && localStorage.getItem("tnk-theme")) as Theme | null;
@@ -84,7 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={it.href}
                 icon={<Icon name={it.icon} size={16} />}
                 label={it.label}
-                count={it.count}
+                count={it.href === "/inbox" ? inboxCount || undefined : it.count}
                 active={pathname === it.href || pathname.startsWith(it.href + "/")}
                 onClick={() => router.push(it.href)}
               />

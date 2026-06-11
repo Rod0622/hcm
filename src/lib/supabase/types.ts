@@ -141,6 +141,13 @@ export type Database = {
             foreignKeyName: "approvals_requested_for_worker_id_fkey"
             columns: ["requested_for_worker_id"]
             isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "approvals_requested_for_worker_id_fkey"
+            columns: ["requested_for_worker_id"]
+            isOneToOne: false
             referencedRelation: "workers"
             referencedColumns: ["id"]
           },
@@ -298,6 +305,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compensation_records_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
           },
           {
             foreignKeyName: "compensation_records_worker_id_fkey"
@@ -527,6 +541,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
           },
           {
             foreignKeyName: "documents_worker_id_fkey"
@@ -800,6 +821,128 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leave_policies: {
+        Row: {
+          accrual_per_month: number
+          country_code: string
+          created_at: string
+          id: string
+          leave_type: string
+          name: string
+          tenant_id: string
+        }
+        Insert: {
+          accrual_per_month: number
+          country_code: string
+          created_at?: string
+          id?: string
+          leave_type?: string
+          name: string
+          tenant_id: string
+        }
+        Update: {
+          accrual_per_month?: number
+          country_code?: string
+          created_at?: string
+          id?: string
+          leave_type?: string
+          name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leave_requests: {
+        Row: {
+          approver_worker_id: string | null
+          created_at: string
+          days: number
+          decided_at: string | null
+          decided_by: string | null
+          end_date: string
+          id: string
+          leave_type: string
+          reason: string | null
+          start_date: string
+          status: string
+          tenant_id: string
+          worker_id: string
+        }
+        Insert: {
+          approver_worker_id?: string | null
+          created_at?: string
+          days: number
+          decided_at?: string | null
+          decided_by?: string | null
+          end_date: string
+          id?: string
+          leave_type?: string
+          reason?: string | null
+          start_date: string
+          status?: string
+          tenant_id: string
+          worker_id: string
+        }
+        Update: {
+          approver_worker_id?: string | null
+          created_at?: string
+          days?: number
+          decided_at?: string | null
+          decided_by?: string | null
+          end_date?: string
+          id?: string
+          leave_type?: string
+          reason?: string | null
+          start_date?: string
+          status?: string
+          tenant_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_requests_approver_worker_id_fkey"
+            columns: ["approver_worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "leave_requests_approver_worker_id_fkey"
+            columns: ["approver_worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "leave_requests_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
             referencedColumns: ["id"]
           },
         ]
@@ -1226,6 +1369,13 @@ export type Database = {
             foreignKeyName: "payroll_exceptions_worker_id_fkey"
             columns: ["worker_id"]
             isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "payroll_exceptions_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
             referencedRelation: "workers"
             referencedColumns: ["id"]
           },
@@ -1476,6 +1626,13 @@ export type Database = {
             foreignKeyName: "payroll_run_lines_worker_id_fkey"
             columns: ["worker_id"]
             isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "payroll_run_lines_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
             referencedRelation: "workers"
             referencedColumns: ["id"]
           },
@@ -1634,6 +1791,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_acknowledgments_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
           },
           {
             foreignKeyName: "policy_acknowledgments_worker_id_fkey"
@@ -1817,6 +1981,13 @@ export type Database = {
             foreignKeyName: "tasks_worker_id_fkey"
             columns: ["worker_id"]
             isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "tasks_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
             referencedRelation: "workers"
             referencedColumns: ["id"]
           },
@@ -1891,6 +2062,7 @@ export type Database = {
           status: string
           tenant_id: string
           terminated_on: string | null
+          user_id: string | null
           work_email: string | null
           worker_type: string
         }
@@ -1909,6 +2081,7 @@ export type Database = {
           status?: string
           tenant_id: string
           terminated_on?: string | null
+          user_id?: string | null
           work_email?: string | null
           worker_type?: string
         }
@@ -1927,6 +2100,7 @@ export type Database = {
           status?: string
           tenant_id?: string
           terminated_on?: string | null
+          user_id?: string | null
           work_email?: string | null
           worker_type?: string
         }
@@ -1944,6 +2118,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workers_manager_worker_id_fkey"
+            columns: ["manager_worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
           },
           {
             foreignKeyName: "workers_manager_worker_id_fkey"
@@ -2228,7 +2409,30 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      pto_balances: {
+        Row: {
+          accrual_per_month: number | null
+          accrued: number | null
+          balance: number | null
+          country_code: string | null
+          full_name: string | null
+          hired_on: string | null
+          pending: number | null
+          tenant_id: string | null
+          used: number | null
+          user_id: string | null
+          worker_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never

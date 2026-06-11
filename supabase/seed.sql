@@ -235,3 +235,46 @@ insert into public.job_openings (id, tenant_id, org_unit_id, location_id, legal_
      {"term":"adp","weight":1,"aliases":["workday","gusto","rippling"]},
      {"term":"garnishment","weight":1,"aliases":["garnishments"]}]',
    'aaaaaaaa-0000-0000-0000-000000000002');
+
+-- ---------- Time & leave ----------
+-- PH accrual: 0.5 PTO days per completed month of service
+insert into public.leave_policies (id, tenant_id, country_code, leave_type, name, accrual_per_month) values
+  ('1e000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','PH','pto','PH monthly PTO accrual',0.5);
+
+-- Worker records for the demo logins (self-service: balance, filing, approvals)
+insert into public.positions (id, tenant_id, org_unit_id, title, level) values
+  ('90000000-0000-0000-0000-000000000008','11111111-1111-1111-1111-111111111111','06000000-0000-0000-0000-000000000005','Head of People','E1'),
+  ('90000000-0000-0000-0000-000000000009','11111111-1111-1111-1111-111111111111','06000000-0000-0000-0000-000000000004','Country Manager — PH','M2');
+
+insert into public.people (id, tenant_id, full_name, email) values
+  ('be000000-0000-0000-0000-000000000008','11111111-1111-1111-1111-111111111111','Ana Reyes','ana@trytenkara.com'),
+  ('be000000-0000-0000-0000-000000000009','11111111-1111-1111-1111-111111111111','Rod Mercado','rod@trytenkara.com');
+
+insert into public.workers (id, tenant_id, person_id, legal_entity_id, position_id, org_unit_id, location_id,
+  manager_worker_id, employee_number, status, work_email, hired_on, user_id) values
+  ('aa000000-0000-0000-0000-000000000008','11111111-1111-1111-1111-111111111111','be000000-0000-0000-0000-000000000008',
+   'e1000000-0000-0000-0000-000000000001','90000000-0000-0000-0000-000000000008','06000000-0000-0000-0000-000000000005',
+   '10c00000-0000-0000-0000-000000000002','aa000000-0000-0000-0000-000000000007','EMP-0034','active','ana@trytenkara.com','2023-05-01',
+   'aaaaaaaa-0000-0000-0000-000000000002'),
+  ('aa000000-0000-0000-0000-000000000009','11111111-1111-1111-1111-111111111111','be000000-0000-0000-0000-000000000009',
+   'e1000000-0000-0000-0000-000000000002','90000000-0000-0000-0000-000000000009','06000000-0000-0000-0000-000000000004',
+   '10c00000-0000-0000-0000-000000000005','aa000000-0000-0000-0000-000000000008','EMP-0077','active','rod@trytenkara.com','2025-09-15',
+   'aaaaaaaa-0000-0000-0000-000000000001');
+
+insert into public.compensation_records (tenant_id, worker_id, effective_date, event, base_amount, currency, frequency, components, reason) values
+  ('11111111-1111-1111-1111-111111111111','aa000000-0000-0000-0000-000000000008','2023-05-01','hire',198000,'USD','annual','{"approved_by_label":"Dana Cruz"}','Hire'),
+  ('11111111-1111-1111-1111-111111111111','aa000000-0000-0000-0000-000000000009','2025-09-15','hire',3200000,'PHP','annual','{"approved_by_label":"Ana Reyes"}','Hire');
+
+-- Sample leave: insert pending then decide so the notification triggers
+-- produce both the approval request and the decision notice.
+insert into public.leave_requests (id, tenant_id, worker_id, leave_type, start_date, end_date, days, reason, status, approver_worker_id) values
+  ('1d000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','aa000000-0000-0000-0000-000000000009',
+   'pto','2026-05-04','2026-05-04',1,'Family day','pending','aa000000-0000-0000-0000-000000000008');
+
+update public.leave_requests
+  set status = 'approved', decided_by = 'aaaaaaaa-0000-0000-0000-000000000002', decided_at = timestamptz '2026-04-28 10:00+00'
+  where id = '1d000000-0000-0000-0000-000000000001';
+
+insert into public.leave_requests (id, tenant_id, worker_id, leave_type, start_date, end_date, days, reason, status, approver_worker_id) values
+  ('1d000000-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','aa000000-0000-0000-0000-000000000003',
+   'pto','2026-06-22','2026-06-26',5,'Hometown fiesta','pending','aa000000-0000-0000-0000-000000000005');
