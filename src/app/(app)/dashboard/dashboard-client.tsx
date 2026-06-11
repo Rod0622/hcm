@@ -3,26 +3,38 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/app-shell";
-import { Icon, Card, Stat, Badge, Button, Banner, Avatar, Table, IconButton } from "@/components/ui";
+import { Icon, Card, Stat, Badge, Button, Banner, Avatar, Table, IconButton, EmptyState, type BadgeTone } from "@/components/ui";
 import { TimeClock, type ClockEntry } from "@/components/time-clock";
-import { approvals, employees, workflowRuns } from "@/lib/data";
+import { createClient } from "@/lib/supabase/client";
 
-const HEADCOUNT = [
-  { m: "Jan", v: 112 }, { m: "Feb", v: 118 }, { m: "Mar", v: 121 },
-  { m: "Apr", v: 127 }, { m: "May", v: 136 }, { m: "Jun", v: 142 },
-];
+export type AdminData = {
+  headcount: number;
+  headcountDelta?: string;
+  netPay: string | null;
+  payEmployees: number | null;
+  nextPayDate: string | null;
+  openRoles: number;
+  offerStage: number;
+  complianceDue: number;
+  complianceBlockers: number;
+  payrollBlockers: number;
+  headcountSeries: Array<{ m: string; v: number }>;
+  approvals: Array<{ id: string; source: "leave" | "approval"; who: string; what: string }>;
+  workflowRuns: Array<{ id: string; name: string; target: string; step: string; status: string; tone: BadgeTone }>;
+  startingSoon: Array<{ id: string; name: string; dept: string; start: string; status: string; tone: BadgeTone }>;
+};
 
-function HeadcountChart() {
-  const max = 150;
+function HeadcountChart({ series }: { series: Array<{ m: string; v: number }> }) {
+  const max = Math.max(...series.map((d) => d.v), 1) * 1.15;
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: 130, paddingTop: 8 }}>
-      {HEADCOUNT.map((d, i) => (
+      {series.map((d, i) => (
         <div key={d.m} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, height: "100%", justifyContent: "flex-end" }}>
-          <span style={{ font: "var(--weight-medium) var(--text-2xs)/1 var(--font-mono)", color: i === HEADCOUNT.length - 1 ? "var(--text-1)" : "var(--text-3)" }}>{d.v}</span>
+          <span style={{ font: "var(--weight-medium) var(--text-2xs)/1 var(--font-mono)", color: i === series.length - 1 ? "var(--text-1)" : "var(--text-3)" }}>{d.v}</span>
           <div style={{
-            width: "100%", maxWidth: 44, height: `${(d.v / max) * 100}%`,
-            background: i === HEADCOUNT.length - 1 ? "var(--chart-1)" : "var(--accent-subtle)",
-            border: i === HEADCOUNT.length - 1 ? "none" : "1px solid var(--accent-muted)",
+            width: "100%", maxWidth: 44, height: `${Math.max((d.v / max) * 100, 3)}%`,
+            background: i === series.length - 1 ? "var(--chart-1)" : "var(--accent-subtle)",
+            border: i === series.length - 1 ? "none" : "1px solid var(--accent-muted)",
             borderRadius: "4px 4px 2px 2px",
           }} />
           <span style={{ font: "var(--weight-medium) var(--text-2xs)/1 var(--font-sans)", color: "var(--text-3)" }}>{d.m}</span>
@@ -58,11 +70,63 @@ function QuickLink({ icon, label, description, href }: { icon: string; label: st
   );
 }
 
-export function DashboardClient({ displayName, isAdmin, me, clockEntries }: {
+function ApprovalsCard({ items }: { items: AdminData["approvals"] }) {
+  const router = useRouter();
+  const [busy, setBusy] = React.useState<string | null>(null);
+
+  const approve = async (item: AdminData["approvals"][number]) => {
+    setBusy(item.id);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (item.source === "leave") {
+      await supabase.from("leave_requests").update({
+        status: "approved",
+        decided_by: user?.id ?? null,
+        decided_at: new Date().toISOString(),
+      }).eq("id", item.id);
+    } else {
+      await supabase.from("approvals").update({ status: "approved" }).eq("id", item.id);
+    }
+    setBusy(null);
+    router.refresh();
+  };
+
+  return (
+    <Card title="Pending approvals" subtitle="Leave and general approvals" padding="0">
+      {items.length === 0 ? (
+        <EmptyState icon={<Icon name="circle-check" size={18} />} title="All clear" description="Nothing waiting on a decision." />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {items.map((a, i) => (
+            <div key={a.id} style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "10px 20px",
+              borderBottom: i === items.length - 1 ? "none" : "1px solid var(--border-1)",
+            }}>
+              <Avatar name={a.who} size={26} />
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
+                <span style={{ font: "var(--label-md)", fontSize: "var(--text-xs)", color: "var(--text-1)" }}>{a.who}</span>
+                <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.what}</span>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <Button size="sm" variant="secondary" disabled={busy === a.id} onClick={() => approve(a)}>
+                  {busy === a.id ? "…" : "Approve"}
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+export function DashboardClient({ displayName, isAdmin, me, clockEntries, admin }: {
   displayName: string;
   isAdmin: boolean;
   me: { workerId: string; tenantId: string } | null;
   clockEntries: ClockEntry[];
+  admin: AdminData | null;
 }) {
   const router = useRouter();
   const go = (path: string) => router.push(path);
@@ -83,12 +147,14 @@ export function DashboardClient({ displayName, isAdmin, me, clockEntries }: {
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
         <div>
           <h1 style={{ font: "var(--title-page)", color: "var(--text-1)" }}>{greeting}, {displayName.split(" ")[0]}</h1>
-          <p style={{ font: "var(--body-sm)", color: "var(--text-3)", marginTop: 4 }}>{dateLabel}</p>
+          <p style={{ font: "var(--body-sm)", color: "var(--text-3)", marginTop: 4 }}>
+            {dateLabel}{admin?.nextPayDate ? ` · Next pay date ${admin.nextPayDate}` : ""}
+          </p>
         </div>
 
         {me ? <TimeClock workerId={me.workerId} tenantId={me.tenantId} entries={clockEntries} /> : null}
 
-        {!isAdmin ? (
+        {!isAdmin || !admin ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-4)" }}>
             <QuickLink icon="banknote" label="My payroll" description="Payslips and net pay" href="/payroll" />
             <QuickLink icon="clock" label="Time & leave" description="PTO balance and requests" href="/time" />
@@ -96,74 +162,65 @@ export function DashboardClient({ displayName, isAdmin, me, clockEntries }: {
           </div>
         ) : (
           <React.Fragment>
-            <Banner
-              tone="warning"
-              title="2 payroll blockers"
-              description="Missing tax IDs prevent the Jun 1–15 run from processing."
-              action={<Button size="sm" variant="secondary" onClick={() => go("/payroll")}>Review run</Button>}
-            />
+            {admin.payrollBlockers > 0 ? (
+              <Banner
+                tone="warning"
+                title={`${admin.payrollBlockers} payroll blocker${admin.payrollBlockers === 1 ? "" : "s"}`}
+                description="Exceptions are preventing the current run from processing."
+                action={<Button size="sm" variant="secondary" onClick={() => go("/payroll")}>Review run</Button>}
+              />
+            ) : null}
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--space-4)" }}>
-              <Card><Stat label="Headcount" value="142" delta="+6" hint="this month" /></Card>
-              <Card><Stat label="Net pay · Jun 1–15" value="$1.28M" deltaTone="neutral" hint="118 employees" /></Card>
-              <Card><Stat label="Open roles" value="9" deltaTone="neutral" hint="4 in offer stage" /></Card>
-              <Card><Stat label="Compliance tasks" value="3" delta="1 blocker" deltaTone="danger" hint="due this month" /></Card>
+              <Card><Stat label="Headcount" value={String(admin.headcount)} delta={admin.headcountDelta} hint="active + onboarding" /></Card>
+              <Card><Stat label="Latest run · net pay" value={admin.netPay ?? "—"} deltaTone="neutral" hint={admin.payEmployees != null ? `${admin.payEmployees} employees` : ""} /></Card>
+              <Card><Stat label="Open roles" value={String(admin.openRoles)} deltaTone="neutral" hint={`${admin.offerStage} in offer stage`} /></Card>
+              <Card><Stat label="Compliance tasks" value={String(admin.complianceDue)} delta={admin.complianceBlockers > 0 ? `${admin.complianceBlockers} blocker${admin.complianceBlockers === 1 ? "" : "s"}` : undefined} deltaTone="danger" hint="open items" /></Card>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: "var(--space-4)" }}>
-              <Card title="Headcount movements" subtitle="Trailing 6 months" actions={<IconButton label="Open analytics" onClick={() => go("/analytics")}><Icon name="arrow-up-right" size={15} /></IconButton>}>
-                <HeadcountChart />
+              <Card title="Headcount" subtitle="Trailing 6 months · from hire dates" actions={<IconButton label="Open analytics" onClick={() => go("/analytics")}><Icon name="arrow-up-right" size={15} /></IconButton>}>
+                <HeadcountChart series={admin.headcountSeries} />
               </Card>
-              <Card title="Pending approvals" subtitle="Assigned to you" padding="0">
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  {approvals.map((a, i) => (
-                    <div key={i} style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "10px 20px",
-                      borderBottom: i === approvals.length - 1 ? "none" : "1px solid var(--border-1)",
-                    }}>
-                      <Avatar name={a.who} size={26} />
-                      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
-                        <span style={{ font: "var(--label-md)", fontSize: "var(--text-xs)", color: "var(--text-1)" }}>{a.who}</span>
-                        <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.what}</span>
-                      </div>
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <Button size="sm" variant="secondary">Approve</Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
+              <ApprovalsCard items={admin.approvals} />
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
-              <Card title="Workflow runs" subtitle="Live" padding="0" actions={<Button size="sm" variant="ghost" onClick={() => go("/workflows")}>Open builder</Button>}>
-                <Table
-                  compact
-                  rowKey="name"
-                  onRowClick={() => go("/workflows")}
-                  columns={[
-                    { key: "name", label: "Workflow" },
-                    { key: "target", label: "Employee" },
-                    { key: "step", label: "Step", mono: true },
-                    { key: "status", label: "Status", render: (r) => <Badge tone={r.tone} dot>{r.status}</Badge> },
-                  ]}
-                  rows={workflowRuns}
-                />
+              <Card title="Workflow runs" subtitle="Latest" padding="0" actions={<Button size="sm" variant="ghost" onClick={() => go("/workflows")}>Open builder</Button>}>
+                {admin.workflowRuns.length === 0 ? (
+                  <EmptyState icon={<Icon name="workflow" size={18} />} title="No runs yet" description="Workflow runs appear here as they start." />
+                ) : (
+                  <Table
+                    compact
+                    rowKey="id"
+                    onRowClick={() => go("/workflows")}
+                    columns={[
+                      { key: "name", label: "Workflow" },
+                      { key: "target", label: "Employee" },
+                      { key: "step", label: "Step", mono: true },
+                      { key: "status", label: "Status", render: (r) => <Badge tone={r.tone} dot>{r.status}</Badge> },
+                    ]}
+                    rows={admin.workflowRuns}
+                  />
+                )}
               </Card>
               <Card title="Starting soon" subtitle="Onboarding pipeline" padding="0" actions={<Button size="sm" variant="ghost" onClick={() => go("/employees")}>Directory</Button>}>
-                <Table
-                  compact
-                  rowKey="id"
-                  onRowClick={(r) => go(`/employees/${r.id}`)}
-                  columns={[
-                    { key: "name", label: "Employee", render: (r) => <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Avatar name={r.name} size={22} />{r.name}</span> },
-                    { key: "dept", label: "Department" },
-                    { key: "start", label: "Start", mono: true },
-                    { key: "status", label: "Status", render: (r) => <Badge tone={r.tone} dot>{r.status}</Badge> },
-                  ]}
-                  rows={employees.slice(0, 3)}
-                />
+                {admin.startingSoon.length === 0 ? (
+                  <EmptyState icon={<Icon name="users" size={18} />} title="No upcoming starts" description="New hires in onboarding appear here." />
+                ) : (
+                  <Table
+                    compact
+                    rowKey="id"
+                    onRowClick={(r) => go(`/employees/${r.id}`)}
+                    columns={[
+                      { key: "name", label: "Employee", render: (r) => <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Avatar name={r.name} size={22} />{r.name}</span> },
+                      { key: "dept", label: "Department" },
+                      { key: "start", label: "Start", mono: true },
+                      { key: "status", label: "Status", render: (r) => <Badge tone={r.tone} dot>{r.status}</Badge> },
+                    ]}
+                    rows={admin.startingSoon}
+                  />
+                )}
               </Card>
             </div>
           </React.Fragment>
