@@ -75,6 +75,28 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
         .order("severity"),
     ]);
 
+    const lineIds = (lines ?? []).map((l) => l.id);
+    const { data: items } = lineIds.length
+      ? await supabase
+          .from("payroll_line_items")
+          .select("line_id, amount, quantity, rate, detail, pay_code:pay_codes(name, kind)")
+          .in("line_id", lineIds)
+      : { data: [] };
+    type LineItemRow = {
+      line_id: string;
+      amount: number;
+      quantity: number | null;
+      rate: number | null;
+      detail: unknown;
+      pay_code: { name: string; kind: string } | null;
+    };
+    const itemsByLine = new Map<string, LineItemRow[]>();
+    for (const it of (items ?? []) as LineItemRow[]) {
+      const list = itemsByLine.get(it.line_id) ?? [];
+      list.push(it);
+      itemsByLine.set(it.line_id, list);
+    }
+
     if (run) {
       const totals = (run.totals ?? {}) as Record<string, number>;
       detail = {
@@ -99,6 +121,16 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
           deductions: Number(l.deductions),
           net: Number(l.net),
           change: ((l.notes ?? {}) as Record<string, string>).change ?? "—",
+          items: (itemsByLine.get(l.id) ?? []).map((it) => {
+            const detail = (it.detail ?? {}) as Record<string, string>;
+            return {
+              name: it.pay_code?.name ?? detail.name ?? "—",
+              kind: (it.pay_code?.kind ?? detail.kind ?? "earning") as "earning" | "deduction" | "tax",
+              amount: Number(it.amount),
+              quantity: it.quantity != null ? Number(it.quantity) : null,
+              rate: it.rate != null ? Number(it.rate) : null,
+            };
+          }),
         })),
         exceptions: (exceptions ?? []).map((e) => ({
           id: e.id,

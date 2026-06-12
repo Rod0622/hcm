@@ -3143,7 +3143,10 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      provision_worker_login: {
+        Args: { p_email: string; p_password: string; p_worker_id: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

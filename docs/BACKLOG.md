@@ -31,7 +31,11 @@ Demo logins (password `TenkaraDemo2026!`):
 | Requests | Self-service COE/payslip requests, HR fulfillment via private hr-docs bucket, notifications both ways |
 | Holidays & calendar | PH/US/SG 2026 holidays; leave counts skip them; team month calendar on /time |
 | Maintenance cron | Nightly: document-expiry alerts, auto-close forgotten time entries |
-| Tests | vitest suite over ATS scoring, leave math, payroll engine (14 tests) |
+| Tests | vitest suite over ATS scoring, leave math, payroll engine (19 tests) |
+| Login provisioning | Admin-gated RPC creates logins (convert-to-employee option + profile button); temp password shown once |
+| Offboarding | Last day + reason → cancels pending leave, revokes access grants, notifies HR with final-pay estimate; nightly flip to terminated |
+| Payroll verification | Per-line payslip breakdown dialog, register + components CSV, docs/PAYROLL.md formula spec for accountant validation |
+| Analytics | Live headcount trend, dept/country mix, attendance hours, leave usage, payroll runs, recruiting funnel |
 
 ## Mock / partially wired
 
@@ -39,7 +43,6 @@ Demo logins (password `TenkaraDemo2026!`):
 |---|---|---|
 | Compliance | Packs/tasks/audit are sample copy | Wire to compliance_* tables (seeded) |
 | Workflows | Builder canvas + runs are sample | Wire run list to workflow_runs; builder persists to workflow_versions |
-| Analytics | Placeholder | Aggregate live headcount/attrition/payroll queries |
 | Legal entities | Placeholder | CRUD on legal_entities (table live + seeded) |
 | Ask Tenkara (/ai) | Placeholder | LLM assistant over tenant data — needs design |
 
@@ -48,12 +51,10 @@ Demo logins (password `TenkaraDemo2026!`):
 1. **Wire compliance page** — live packs, statuses, and the audit trail feed.
 2. **Legal entities CRUD** — small; unblocks real multi-entity setup.
 3. **Workflows: run list live** — read side first; builder persistence later.
-4. **Analytics v1** — headcount trend, dept mix, leave usage, attendance hours.
-5. **Offboarding** — terminate → final pay, leave payout, revoke all access.
-6. **13th-month pay (PH)** — annual statutory computation from run history.
-7. **Integrations hardening** — Resend key, Time Doctor field-test, SSO/IdP
+4. **13th-month pay (PH)** — annual statutory computation from run history.
+5. **Integrations hardening** — Resend key, Time Doctor field-test, SSO/IdP
    design for access grants; password reset + invite-by-email flows.
-8. **Ask Tenkara (/ai)** — deliberately deferred per product decision.
+6. **Ask Tenkara (/ai)** — deliberately deferred per product decision.
 
 ## Engineering debt
 

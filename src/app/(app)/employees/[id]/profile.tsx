@@ -348,15 +348,159 @@ function Compensation({ P }: { P: ProfileData }) {
   );
 }
 
-export function Profile({ data: P, edit, isAdmin, isSelf }: {
+export type OffboardData = {
+  status: string;
+  ptoDays: number;
+  dailyRate: number;
+  currency: string;
+};
+
+function LoginDialog({ open, onClose, workerId, email }: {
+  open: boolean;
+  onClose: () => void;
+  workerId: string;
+  email: string;
+}) {
+  const router = useRouter();
+  const [password] = React.useState(() => `Tenkara-${Math.random().toString(36).slice(2, 8)}-${Math.floor(Math.random() * 90 + 10)}`);
+  const [error, setError] = React.useState<string | null>(null);
+  const [created, setCreated] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+
+  const create = async () => {
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("provision_worker_login", {
+      p_worker_id: workerId,
+      p_email: email,
+      p_password: password,
+    });
+    setBusy(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setCreated(true);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      title={created ? "Login created" : "Create login"}
+      description={created ? undefined : `Creates member-level access for ${email}. The temporary password below is shown once — share it securely.`}
+      onClose={() => { onClose(); if (created) router.refresh(); }}
+      footer={
+        created ? (
+          <Button variant="primary" size="sm" onClick={() => { onClose(); router.refresh(); }}>Done</Button>
+        ) : (
+          <React.Fragment>
+            <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" size="sm" onClick={create} disabled={busy}>{busy ? "Creating…" : "Create login"}</Button>
+          </React.Fragment>
+        )
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <span style={{ font: "var(--label-caps)", letterSpacing: "var(--tracking-caps)", textTransform: "uppercase", color: "var(--text-3)" }}>Temporary password</span>
+        <code style={{
+          font: "var(--data-md)", fontSize: "var(--text-sm)", color: "var(--text-1)",
+          background: "var(--bg-base)", border: "1px solid var(--border-1)",
+          borderRadius: "var(--radius-md)", padding: "10px 14px", userSelect: "all",
+        }}>
+          {password}
+        </code>
+        {error ? <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--danger)" }}>{error}</span> : null}
+      </div>
+    </Dialog>
+  );
+}
+
+function OffboardDialog({ open, onClose, workerId, name, offboard }: {
+  open: boolean;
+  onClose: () => void;
+  workerId: string;
+  name: string;
+  offboard: OffboardData;
+}) {
+  const router = useRouter();
+  const [lastDay, setLastDay] = React.useState(new Date().toISOString().slice(0, 10));
+  const [reason, setReason] = React.useState("resignation");
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const payout = Math.round(offboard.ptoDays * offboard.dailyRate * 100) / 100;
+
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    const res = await fetch("/api/offboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workerId, lastDay, reason }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      setError(body.error ?? "Offboarding failed");
+      return;
+    }
+    onClose();
+    router.refresh();
+  };
+
+  return (
+    <Dialog
+      open={open}
+      title={`Offboard ${name}`}
+      description="Sets their last day, cancels pending leave, revokes software access, and notifies HR with the final-pay estimate. Final pay is processed through the covering payroll run."
+      onClose={onClose}
+      footer={
+        <React.Fragment>
+          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="danger" size="sm" onClick={submit} disabled={busy}>
+            {busy ? "Working…" : "Confirm offboarding"}
+          </Button>
+        </React.Fragment>
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <Input label="Last day" type="date" value={lastDay} onChange={(e) => setLastDay(e.target.value)} />
+          <Select
+            label="Reason"
+            options={[
+              { value: "resignation", label: "Resignation" },
+              { value: "termination", label: "Termination" },
+              { value: "end_of_contract", label: "End of contract" },
+              { value: "redundancy", label: "Redundancy" },
+            ]}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
+        <p style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-2)" }}>
+          Final-pay estimate: <strong>{offboard.ptoDays}</strong> unused PTO day(s) × {offboard.dailyRate.toLocaleString()} {offboard.currency}/day ≈ <strong>{payout.toLocaleString()} {offboard.currency}</strong>, plus prorated salary to the last day.
+        </p>
+        {error ? <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--danger)" }}>{error}</span> : null}
+      </div>
+    </Dialog>
+  );
+}
+
+export function Profile({ data: P, edit, isAdmin, isSelf, hasLogin, offboard }: {
   data: ProfileData;
   edit: EditData;
   isAdmin: boolean;
   isSelf: boolean;
+  hasLogin: boolean;
+  offboard: OffboardData;
 }) {
   const router = useRouter();
   const [tab, setTab] = React.useState("overview");
   const [editOpen, setEditOpen] = React.useState(false);
+  const [loginOpen, setLoginOpen] = React.useState(false);
+  const [offboardOpen, setOffboardOpen] = React.useState(false);
   const photoRef = React.useRef<HTMLInputElement>(null);
 
   const selfPhotoUpload = async (file: File) => {
@@ -376,7 +520,16 @@ export function Profile({ data: P, edit, isAdmin, isSelf }: {
               Change photo
             </Button>
           ) : null}
-          <Button variant="secondary" size="sm" icon={<Icon name="workflow" size={14} />}>Start workflow</Button>
+          {isAdmin && !hasLogin && P.email !== "—" ? (
+            <Button variant="secondary" size="sm" icon={<Icon name="key-round" size={14} />} onClick={() => setLoginOpen(true)}>
+              Create login
+            </Button>
+          ) : null}
+          {isAdmin && offboard.status !== "terminated" ? (
+            <Button variant="secondary" size="sm" icon={<Icon name="user-minus" size={14} />} onClick={() => setOffboardOpen(true)}>
+              Offboard
+            </Button>
+          ) : null}
           {isAdmin ? (
             <Button variant="primary" size="sm" icon={<Icon name="pencil" size={13} />} onClick={() => setEditOpen(true)}>
               Edit profile
@@ -426,6 +579,12 @@ export function Profile({ data: P, edit, isAdmin, isSelf }: {
       />
       {isAdmin && editOpen ? (
         <EditDialog open={editOpen} onClose={() => setEditOpen(false)} edit={edit} currentAvatar={P.avatarSrc} />
+      ) : null}
+      {isAdmin && loginOpen ? (
+        <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} workerId={edit.workerId} email={P.email} />
+      ) : null}
+      {isAdmin && offboardOpen ? (
+        <OffboardDialog open={offboardOpen} onClose={() => setOffboardOpen(false)} workerId={edit.workerId} name={P.name} offboard={offboard} />
       ) : null}
     </Page>
   );

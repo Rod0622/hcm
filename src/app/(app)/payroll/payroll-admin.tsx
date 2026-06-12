@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/app-shell";
-import { Icon, Card, Stat, Badge, Button, Banner, Table, EmptyState, type BadgeTone } from "@/components/ui";
+import { Icon, Card, Stat, Badge, Button, Banner, Table, EmptyState, Dialog, type BadgeTone } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney } from "@/lib/format";
 
@@ -25,9 +25,66 @@ export type RunDetail = {
   periodLabel: string;
   payDate: string;
   totals: { gross: number; taxes: number; deductions: number; net: number; employees: number };
-  lines: Array<{ id: string; name: string; gross: number; taxes: number; deductions: number; net: number; change: string }>;
+  lines: Array<{
+    id: string;
+    name: string;
+    gross: number;
+    taxes: number;
+    deductions: number;
+    net: number;
+    change: string;
+    items: Array<{ name: string; kind: "earning" | "deduction" | "tax"; amount: number; quantity: number | null; rate: number | null }>;
+  }>;
   exceptions: Array<{ id: string; severity: string; message: string; action: string; status: string; who: string }>;
 };
+
+function PayslipDialog({ line, currency, onClose }: {
+  line: RunDetail["lines"][number];
+  currency: string;
+  onClose: () => void;
+}) {
+  const groups: Array<{ label: string; kind: "earning" | "tax" | "deduction" }> = [
+    { label: "Earnings", kind: "earning" },
+    { label: "Taxes", kind: "tax" },
+    { label: "Deductions", kind: "deduction" },
+  ];
+  return (
+    <Dialog
+      open
+      width={460}
+      title={`Payslip breakdown — ${line.name}`}
+      description="Every component as calculated; use this to verify against your accountant's numbers."
+      onClose={onClose}
+      footer={<Button variant="secondary" size="sm" onClick={onClose}>Close</Button>}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {groups.map((g) => {
+          const items = line.items.filter((i) => i.kind === g.kind);
+          if (items.length === 0) return null;
+          return (
+            <div key={g.kind} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span style={{ font: "var(--label-caps)", letterSpacing: "var(--tracking-caps)", textTransform: "uppercase", color: "var(--text-3)" }}>{g.label}</span>
+              {items.map((i, idx) => (
+                <div key={idx} style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                  <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-1)", flex: 1 }}>
+                    {i.name}{i.quantity != null ? ` · ${i.quantity}${i.rate != null ? ` × ${formatMoney(i.rate, currency)}` : ""}` : ""}
+                  </span>
+                  <span style={{ font: "var(--data-md)", fontSize: "var(--text-xs)", color: g.kind === "earning" ? "var(--text-1)" : "var(--danger-text)" }}>
+                    {g.kind === "earning" ? "" : "−"}{formatMoney(i.amount, currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+        <div style={{ borderTop: "1px solid var(--border-1)", paddingTop: 10, display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={{ font: "var(--label-md)", fontSize: "var(--text-sm)", color: "var(--text-1)", flex: 1 }}>Net pay</span>
+          <span style={{ font: "var(--data-md)", fontSize: "var(--text-md)", color: "var(--success-text)" }}>{formatMoney(line.net, currency)}</span>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
 
 const STEPS = ["Draft", "In review", "Approved", "Processed"];
 const STATUS_LABEL: Record<string, string> = {
@@ -75,6 +132,7 @@ export function PayrollAdmin({ periods, detail }: { periods: PeriodRow[]; detail
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [payslip, setPayslip] = React.useState<RunDetail["lines"][number] | null>(null);
 
   const calculate = async (periodId: string) => {
     setBusy(periodId);
@@ -220,21 +278,38 @@ export function PayrollAdmin({ periods, detail }: { periods: PeriodRow[]; detail
               padding="0"
               actions={
                 detail.lines.length > 0 ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={<Icon name="download" size={13} />}
-                    onClick={async () => {
-                      const { downloadCsv } = await import("@/lib/csv");
-                      downloadCsv(
-                        `payroll-register-${detail.periodLabel.replace(/[^\d-]/g, "")}.csv`,
-                        ["Employee", "Currency", "Gross", "Taxes", "Deductions", "Net", "Notes"],
-                        detail.lines.map((l) => [l.name, detail.currency, l.gross, l.taxes, l.deductions, l.net, l.change])
-                      );
-                    }}
-                  >
-                    Export CSV
-                  </Button>
+                  <span style={{ display: "flex", gap: 6 }}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={<Icon name="download" size={13} />}
+                      onClick={async () => {
+                        const { downloadCsv } = await import("@/lib/csv");
+                        downloadCsv(
+                          `payroll-register-${detail.periodLabel.replace(/[^\d-]/g, "")}.csv`,
+                          ["Employee", "Currency", "Gross", "Taxes", "Deductions", "Net", "Notes"],
+                          detail.lines.map((l) => [l.name, detail.currency, l.gross, l.taxes, l.deductions, l.net, l.change])
+                        );
+                      }}
+                    >
+                      Register CSV
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={<Icon name="download" size={13} />}
+                      onClick={async () => {
+                        const { downloadCsv } = await import("@/lib/csv");
+                        downloadCsv(
+                          `payroll-components-${detail.periodLabel.replace(/[^\d-]/g, "")}.csv`,
+                          ["Employee", "Component", "Kind", "Currency", "Amount", "Quantity", "Rate"],
+                          detail.lines.flatMap((l) => l.items.map((i) => [l.name, i.name, i.kind, detail.currency, i.amount, i.quantity, i.rate]))
+                        );
+                      }}
+                    >
+                      Components CSV
+                    </Button>
+                  </span>
                 ) : null
               }
             >
@@ -244,6 +319,7 @@ export function PayrollAdmin({ periods, detail }: { periods: PeriodRow[]; detail
                 <Table
                   compact
                   rowKey="id"
+                  onRowClick={(r) => setPayslip(r)}
                   columns={[
                     { key: "name", label: "Employee" },
                     { key: "gross", label: "Gross", mono: true, align: "right", render: (r) => <span>{formatMoney(r.gross, detail.currency)}</span> },
@@ -269,6 +345,7 @@ export function PayrollAdmin({ periods, detail }: { periods: PeriodRow[]; detail
           </Card>
         )}
       </div>
+      {payslip && detail ? <PayslipDialog line={payslip} currency={detail.currency} onClose={() => setPayslip(null)} /> : null}
     </Page>
   );
 }

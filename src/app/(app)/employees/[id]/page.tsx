@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAccess } from "@/lib/access";
 import { avatarUrl } from "@/lib/avatar";
 import { COMP_EVENT, DOCUMENT_STATUS, FREQ_LABEL, WORKER_STATUS, formatDate, formatMoney, relativeTime } from "@/lib/format";
+import { annualize, type CompFrequency } from "@/lib/payroll/engine";
 import { Profile, type EditData, type ProfileData } from "./profile";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
 
   if (!worker) notFound();
 
-  const [{ data: manager }, { data: comp }, { data: docs }, { data: activity }, { data: locations }] = await Promise.all([
+  const [{ data: manager }, { data: comp }, { data: docs }, { data: activity }, { data: locations }, { data: balance }] = await Promise.all([
     worker.manager_worker_id
       ? supabase.from("workers").select("person:people(full_name)").eq("id", worker.manager_worker_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -49,6 +50,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
       .order("created_at", { ascending: false })
       .limit(6),
     supabase.from("locations").select("id, name").order("name"),
+    supabase.from("pto_balances").select("balance").eq("worker_id", id).maybeSingle(),
   ]);
 
   const latest = comp?.[0];
@@ -131,12 +133,23 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
     locations: (locations ?? []).map((l) => ({ id: l.id, name: l.name })),
   };
 
+  const dailyRate = latest?.base_amount != null
+    ? annualize(Number(latest.base_amount), (latest.frequency ?? "annual") as CompFrequency) / 260
+    : 0;
+
   return (
     <Profile
       data={data}
       edit={edit}
       isAdmin={access?.isAdmin ?? false}
       isSelf={!!worker.user_id && worker.user_id === access?.userId}
+      hasLogin={!!worker.user_id}
+      offboard={{
+        status: worker.status,
+        ptoDays: balance?.balance != null ? Number(balance.balance) : 0,
+        dailyRate: Math.round(dailyRate * 100) / 100,
+        currency: latest?.currency ?? "USD",
+      }}
     />
   );
 }

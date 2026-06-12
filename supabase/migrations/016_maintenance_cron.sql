@@ -26,5 +26,9 @@ select cron.schedule(
   set ended_at = started_at + interval '16 hours',
       note = coalesce(note, '') || ' [auto-closed]'
   where ended_at is null and started_at < now() - interval '16 hours';
+
+  update public.workers
+  set status = 'terminated'
+  where status = 'offboarding' and terminated_on < current_date;
   $job$
 );

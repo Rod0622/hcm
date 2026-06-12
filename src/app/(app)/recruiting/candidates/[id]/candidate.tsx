@@ -34,6 +34,10 @@ export type CandidateData = {
   hiredWorkerId: string | null;
 };
 
+function generateTempPassword() {
+  return `Tenkara-${Math.random().toString(36).slice(2, 8)}-${Math.floor(Math.random() * 90 + 10)}`;
+}
+
 function ConvertDialog({ open, onClose, candidate, convert }: {
   open: boolean;
   onClose: () => void;
@@ -49,8 +53,10 @@ function ConvertDialog({ open, onClose, candidate, convert }: {
   const [managerId, setManagerId] = React.useState("");
   const [number, setNumber] = React.useState(convert.suggestedNumber);
   const [startDate, setStartDate] = React.useState(convert.startDate);
+  const [createLogin, setCreateLogin] = React.useState(candidate.email !== "—");
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [done, setDone] = React.useState<{ workerId: string; password: string | null; loginError: string | null } | null>(null);
 
   const save = async () => {
     if (!title.trim() || !entityId || !startDate) {
@@ -126,13 +132,68 @@ function ConvertDialog({ open, onClose, candidate, convert }: {
 
       await supabase.from("applications").update({ hired_worker_id: worker.id }).eq("id", convert.applicationId);
 
-      onClose();
-      router.push(`/employees/${worker.id}`);
+      let password: string | null = null;
+      let loginError: string | null = null;
+      if (createLogin && candidate.email !== "—") {
+        password = generateTempPassword();
+        const { error: rpcError } = await supabase.rpc("provision_worker_login", {
+          p_worker_id: worker.id,
+          p_email: candidate.email,
+          p_password: password,
+        });
+        if (rpcError) {
+          password = null;
+          loginError = rpcError.message;
+        }
+      }
+
+      setBusy(false);
+      setDone({ workerId: worker.id, password, loginError });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Conversion failed");
       setBusy(false);
     }
   };
+
+  if (done) {
+    return (
+      <Dialog
+        open={open}
+        title={`${candidate.name} is now an employee`}
+        onClose={() => router.push(`/employees/${done.workerId}`)}
+        footer={
+          <Button variant="primary" size="sm" onClick={() => router.push(`/employees/${done.workerId}`)}>
+            Open employee profile
+          </Button>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {done.password ? (
+            <React.Fragment>
+              <p style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-2)" }}>
+                Login created for <strong>{candidate.email}</strong>. Share this temporary password securely — it won&apos;t be shown again:
+              </p>
+              <code style={{
+                font: "var(--data-md)", fontSize: "var(--text-sm)", color: "var(--text-1)",
+                background: "var(--bg-base)", border: "1px solid var(--border-1)",
+                borderRadius: "var(--radius-md)", padding: "10px 14px", userSelect: "all",
+              }}>
+                {done.password}
+              </code>
+            </React.Fragment>
+          ) : done.loginError ? (
+            <p style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--warning-text)" }}>
+              Employee created, but the login could not be provisioned: {done.loginError}. You can create it later from their profile.
+            </p>
+          ) : (
+            <p style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-2)" }}>
+              No login was created — you can provision one later from their profile.
+            </p>
+          )}
+        </div>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog
@@ -164,6 +225,14 @@ function ConvertDialog({ open, onClose, candidate, convert }: {
           Compensation from signed offer: {convert.offerAmount.toLocaleString()} {convert.offerCurrency} / {convert.offerFrequency.replace("_", "-")}
         </p>
       ) : null}
+      <div style={{ marginTop: 12 }}>
+        <Switch
+          label={candidate.email !== "—" ? `Create a login for ${candidate.email} (member access)` : "Create login (no email on file)"}
+          checked={createLogin}
+          disabled={candidate.email === "—"}
+          onChange={setCreateLogin}
+        />
+      </div>
       {error ? <p style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--danger)", marginTop: 8 }}>{error}</p> : null}
     </Dialog>
   );
