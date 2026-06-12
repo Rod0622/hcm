@@ -35,7 +35,8 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
     supabase.from("compensation_records")
       .select("effective_date, event, base_amount, currency, frequency, taxable, apply_statutory, components")
       .eq("worker_id", id)
-      .order("effective_date", { ascending: false }),
+      .order("effective_date", { ascending: false })
+      .order("created_at", { ascending: false }),
     supabase.from("documents")
       .select("id, name, kind, status, created_at")
       .eq("worker_id", id)
@@ -120,6 +121,13 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
     frequency: latest?.frequency ?? "annual",
     taxable: latest?.taxable ?? true,
     applyStatutory: latest?.apply_statutory ?? true,
+    // New comp records must not be outranked by future-dated rows (e.g. a
+    // hire that hasn't started yet), so default the effective date to cover them.
+    effectiveDefault: (() => {
+      const today = new Date().toISOString().slice(0, 10);
+      const maxEffective = comp?.[0]?.effective_date ?? today;
+      return maxEffective > today ? maxEffective : today;
+    })(),
     locations: (locations ?? []).map((l) => ({ id: l.id, name: l.name })),
   };
 

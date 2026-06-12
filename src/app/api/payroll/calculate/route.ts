@@ -61,7 +61,8 @@ export async function POST(req: Request) {
       .select("worker_id, base_amount, frequency, taxable, apply_statutory, effective_date")
       .in("worker_id", workerIds)
       .lte("effective_date", period.period_end)
-      .order("effective_date", { ascending: false }),
+      .order("effective_date", { ascending: false })
+      .order("created_at", { ascending: false }),
     supabase.from("time_entries")
       .select("worker_id, kind, started_at, ended_at")
       .in("worker_id", workerIds)

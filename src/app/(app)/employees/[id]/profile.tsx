@@ -46,6 +46,7 @@ export type EditData = {
   frequency: string;
   taxable: boolean;
   applyStatutory: boolean;
+  effectiveDefault: string;
   locations: Array<{ id: string; name: string }>;
 };
 
@@ -87,6 +88,7 @@ function EditDialog({ open, onClose, edit, currentAvatar }: {
   const [frequency, setFrequency] = React.useState(edit.frequency);
   const [taxable, setTaxable] = React.useState(edit.taxable);
   const [applyStatutory, setApplyStatutory] = React.useState(edit.applyStatutory);
+  const [effectiveDate, setEffectiveDate] = React.useState(edit.effectiveDefault);
   const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -155,7 +157,7 @@ function EditDialog({ open, onClose, edit, currentAvatar }: {
         const { error: compError } = await supabase.from("compensation_records").insert({
           tenant_id: edit.tenantId,
           worker_id: edit.workerId,
-          effective_date: new Date().toISOString().slice(0, 10),
+          effective_date: effectiveDate || edit.effectiveDefault,
           event: "adjustment",
           base_amount: newSalary,
           currency,
@@ -222,6 +224,13 @@ function EditDialog({ open, onClose, edit, currentAvatar }: {
             <Select label="Currency" options={CURRENCIES} value={currency} onChange={(e) => setCurrency(e.target.value)} />
             <Select label="Paid per" options={FREQ_OPTIONS} value={frequency} onChange={(e) => setFrequency(e.target.value)} />
           </div>
+          <Input
+            label="Salary effective date"
+            type="date"
+            value={effectiveDate}
+            onChange={(e) => setEffectiveDate(e.target.value)}
+            hint={edit.effectiveDefault > new Date().toISOString().slice(0, 10) ? "Defaults to their start date so this change isn't overridden" : undefined}
+          />
         </div>
         <div style={{ display: "flex", gap: 24, marginTop: 12 }}>
           <Switch label="Taxable (withholding tax)" checked={taxable} onChange={setTaxable} />
