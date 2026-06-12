@@ -97,6 +97,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
       openingTitle: hiredApplication.opening?.title ?? "",
       offerAmount: signedOffer ? Number(signedOffer.base_amount) : null,
       offerCurrency: signedOffer?.currency ?? "PHP",
+      offerFrequency: signedOffer?.frequency ?? "annual",
       startDate: signedOffer?.start_date ?? new Date().toISOString().slice(0, 10),
       suggestedNumber: `EMP-${String((workerCount ?? 0) + 1).padStart(4, "0")}`,
       entities: (entities ?? []).map((e) => ({ id: e.id, name: e.name, currency: e.currency })),

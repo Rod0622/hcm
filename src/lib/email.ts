@@ -9,7 +9,12 @@ import { formatMoney } from "@/lib/format";
 
 const FREQUENCY_LABEL: Record<string, string> = {
   annual: "per year",
+  semi_annual: "every six months",
   monthly: "per month",
+  semi_monthly: "per semi-monthly period",
+  bi_weekly: "every two weeks",
+  weekly: "per week",
+  daily: "per day",
   hourly: "per hour",
 };
 

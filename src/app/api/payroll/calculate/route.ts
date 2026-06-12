@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { calculateLine, type Frequency, type PayException, type PayLine, type WorkerPayInput } from "@/lib/payroll/engine";
+import { calculateLine, type CompFrequency, type Frequency, type PayException, type PayLine, type WorkerPayInput } from "@/lib/payroll/engine";
 import { businessDays } from "@/lib/leave";
 
 export const runtime = "nodejs";
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
 
   const [{ data: comps }, { data: entries }, { data: unpaidLeave }] = await Promise.all([
     supabase.from("compensation_records")
-      .select("worker_id, base_amount, effective_date")
+      .select("worker_id, base_amount, frequency, taxable, apply_statutory, effective_date")
       .in("worker_id", workerIds)
       .lte("effective_date", period.period_end)
       .order("effective_date", { ascending: false }),
@@ -77,9 +77,9 @@ export async function POST(req: Request) {
       .gte("end_date", period.period_start),
   ]);
 
-  const baseByWorker = new Map<string, number>();
+  const compByWorker = new Map<string, NonNullable<typeof comps>[number]>();
   for (const c of comps ?? []) {
-    if (!baseByWorker.has(c.worker_id)) baseByWorker.set(c.worker_id, Number(c.base_amount));
+    if (!compByWorker.has(c.worker_id)) compByWorker.set(c.worker_id, c);
   }
 
   // Overtime: clocked work minutes beyond 8h per UTC day.
@@ -106,11 +106,15 @@ export async function POST(req: Request) {
   }
 
   const results = (workers ?? []).map((w) => {
+    const comp = compByWorker.get(w.id);
     const input: WorkerPayInput = {
       workerId: w.id,
       name: w.person?.full_name ?? "—",
       country,
-      annualBase: baseByWorker.get(w.id) ?? null,
+      baseAmount: comp?.base_amount != null ? Number(comp.base_amount) : null,
+      baseFrequency: (comp?.frequency ?? "annual") as CompFrequency,
+      taxable: comp?.taxable ?? true,
+      applyStatutory: comp?.apply_statutory ?? true,
       otMinutes: otByWorker.get(w.id) ?? 0,
       unpaidLeaveDays: unpaidByWorker.get(w.id) ?? 0,
       newHire: !!w.hired_on && w.hired_on >= period.period_start,

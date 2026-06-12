@@ -43,6 +43,28 @@ export const DOCUMENT_STATUS: Record<string, { label: string; tone: BadgeTone }>
   rejected: { label: "Rejected", tone: "danger" },
 };
 
+export const FREQ_LABEL: Record<string, string> = {
+  annual: "yr",
+  semi_annual: "6 mo",
+  monthly: "mo",
+  semi_monthly: "semi-mo",
+  bi_weekly: "2 wk",
+  weekly: "wk",
+  daily: "day",
+  hourly: "hr",
+};
+
+export const FREQ_OPTIONS = [
+  { value: "annual", label: "Annual" },
+  { value: "semi_annual", label: "Semi-annual" },
+  { value: "monthly", label: "Monthly" },
+  { value: "semi_monthly", label: "Semi-monthly" },
+  { value: "bi_weekly", label: "Bi-weekly" },
+  { value: "weekly", label: "Weekly" },
+  { value: "daily", label: "Daily" },
+  { value: "hourly", label: "Hourly" },
+];
+
 export const COMP_EVENT: Record<string, string> = {
   hire: "Hire",
   merit: "Merit",

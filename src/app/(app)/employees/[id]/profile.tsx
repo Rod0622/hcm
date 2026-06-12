@@ -3,8 +3,9 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/app-shell";
-import { Icon, Card, Badge, Button, Avatar, Table, Tabs, IconButton, Stat, EmptyState, Dialog, Input, Select, type BadgeTone } from "@/components/ui";
+import { Icon, Card, Badge, Button, Avatar, Table, Tabs, IconButton, Stat, EmptyState, Dialog, Input, Select, Switch, type BadgeTone } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import { FREQ_OPTIONS } from "@/lib/format";
 
 export type ProfileData = {
   name: string;
@@ -42,6 +43,9 @@ export type EditData = {
   level: string;
   salary: number | null;
   currency: string;
+  frequency: string;
+  taxable: boolean;
+  applyStatutory: boolean;
   locations: Array<{ id: string; name: string }>;
 };
 
@@ -80,6 +84,9 @@ function EditDialog({ open, onClose, edit, currentAvatar }: {
   const [locationId, setLocationId] = React.useState(edit.locationId ?? "");
   const [salary, setSalary] = React.useState(edit.salary != null ? String(edit.salary) : "");
   const [currency, setCurrency] = React.useState(edit.currency);
+  const [frequency, setFrequency] = React.useState(edit.frequency);
+  const [taxable, setTaxable] = React.useState(edit.taxable);
+  const [applyStatutory, setApplyStatutory] = React.useState(edit.applyStatutory);
   const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
   const [preview, setPreview] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -142,7 +149,9 @@ function EditDialog({ open, onClose, edit, currentAvatar }: {
       }
 
       const newSalary = Number(salary.replace(/[, ]/g, ""));
-      if (salary && Number.isFinite(newSalary) && newSalary > 0 && (newSalary !== edit.salary || currency !== edit.currency)) {
+      const payChanged = newSalary !== edit.salary || currency !== edit.currency
+        || frequency !== edit.frequency || taxable !== edit.taxable || applyStatutory !== edit.applyStatutory;
+      if (salary && Number.isFinite(newSalary) && newSalary > 0 && payChanged) {
         const { error: compError } = await supabase.from("compensation_records").insert({
           tenant_id: edit.tenantId,
           worker_id: edit.workerId,
@@ -150,7 +159,9 @@ function EditDialog({ open, onClose, edit, currentAvatar }: {
           event: "adjustment",
           base_amount: newSalary,
           currency,
-          frequency: "annual",
+          frequency,
+          taxable,
+          apply_statutory: applyStatutory,
           components: { approved_by_label: "Profile edit" },
           reason: "Profile edit",
         });
@@ -206,12 +217,17 @@ function EditDialog({ open, onClose, edit, currentAvatar }: {
             value={locationId}
             onChange={(e) => setLocationId(e.target.value)}
           />
-          <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: "var(--space-3)" }}>
-            <Input label="Base salary / yr" mono value={salary} onChange={(e) => setSalary(e.target.value)} />
+          <Input label="Base salary" mono value={salary} onChange={(e) => setSalary(e.target.value)} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
             <Select label="Currency" options={CURRENCIES} value={currency} onChange={(e) => setCurrency(e.target.value)} />
+            <Select label="Paid per" options={FREQ_OPTIONS} value={frequency} onChange={(e) => setFrequency(e.target.value)} />
           </div>
         </div>
-        {error ? <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--danger)" }}>{error}</span> : null}
+        <div style={{ display: "flex", gap: 24, marginTop: 12 }}>
+          <Switch label="Taxable (withholding tax)" checked={taxable} onChange={setTaxable} />
+          <Switch label="Statutory deductions (SSS, PhilHealth…)" checked={applyStatutory} onChange={setApplyStatutory} />
+        </div>
+        {error ? <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--danger)", marginTop: 8, display: "block" }}>{error}</span> : null}
       </div>
     </Dialog>
   );

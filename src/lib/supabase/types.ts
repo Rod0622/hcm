@@ -339,6 +339,7 @@ export type Database = {
       }
       compensation_records: {
         Row: {
+          apply_statutory: boolean
           approved_by: string | null
           base_amount: number | null
           components: Json
@@ -349,10 +350,12 @@ export type Database = {
           frequency: string | null
           id: string
           reason: string | null
+          taxable: boolean
           tenant_id: string
           worker_id: string
         }
         Insert: {
+          apply_statutory?: boolean
           approved_by?: string | null
           base_amount?: number | null
           components?: Json
@@ -363,10 +366,12 @@ export type Database = {
           frequency?: string | null
           id?: string
           reason?: string | null
+          taxable?: boolean
           tenant_id: string
           worker_id: string
         }
         Update: {
+          apply_statutory?: boolean
           approved_by?: string | null
           base_amount?: number | null
           components?: Json
@@ -377,6 +382,7 @@ export type Database = {
           frequency?: string | null
           id?: string
           reason?: string | null
+          taxable?: boolean
           tenant_id?: string
           worker_id?: string
         }

@@ -12,6 +12,7 @@ export type ConvertData = {
   openingTitle: string;
   offerAmount: number | null;
   offerCurrency: string;
+  offerFrequency: string;
   startDate: string;
   suggestedNumber: string;
   entities: Array<{ id: string; name: string; currency: string }>;
@@ -117,7 +118,7 @@ function ConvertDialog({ open, onClose, candidate, convert }: {
           event: "hire",
           base_amount: convert.offerAmount,
           currency: convert.offerCurrency,
-          frequency: "annual",
+          frequency: convert.offerFrequency,
           components: { approved_by_label: "Signed offer" },
           reason: "Hired via recruiting",
         });
@@ -160,7 +161,7 @@ function ConvertDialog({ open, onClose, candidate, convert }: {
       </div>
       {convert.offerAmount != null ? (
         <p style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-3)", marginTop: 12 }}>
-          Compensation from signed offer: {convert.offerAmount.toLocaleString()} {convert.offerCurrency} / yr
+          Compensation from signed offer: {convert.offerAmount.toLocaleString()} {convert.offerCurrency} / {convert.offerFrequency.replace("_", "-")}
         </p>
       ) : null}
       {error ? <p style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--danger)", marginTop: 8 }}>{error}</p> : null}

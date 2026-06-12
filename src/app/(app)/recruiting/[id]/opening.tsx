@@ -7,6 +7,7 @@ import { Page } from "@/components/app-shell";
 import { Icon, Card, Badge, Button, Table, Input, Select, Stat, EmptyState, IconButton, Dialog, Banner, type BadgeTone } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { SCREEN_THRESHOLD, type OpeningKeyword } from "@/lib/ats";
+import { FREQ_OPTIONS } from "@/lib/format";
 
 export type OpeningData = {
   id: string;
@@ -51,7 +52,6 @@ const APP_STATUS: Record<string, { label: string; tone: BadgeTone }> = {
 
 const IN_PLAY = ["new", "shortlisted", "interviewing"];
 const CURRENCIES = ["USD", "PHP", "SGD"];
-const FREQUENCIES = ["Annual", "Monthly", "Hourly"];
 
 function scoreColor(score: number) {
   if (score >= SCREEN_THRESHOLD) return "var(--success-text)";
@@ -146,7 +146,7 @@ function OfferDialog({ applicant, onClose }: { applicant: ApplicantRow | null; o
   const router = useRouter();
   const [amount, setAmount] = React.useState("");
   const [currency, setCurrency] = React.useState("USD");
-  const [frequency, setFrequency] = React.useState("Annual");
+  const [frequency, setFrequency] = React.useState("annual");
   const [startDate, setStartDate] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -168,7 +168,7 @@ function OfferDialog({ applicant, onClose }: { applicant: ApplicantRow | null; o
         applicationId: applicant.id,
         amount: value,
         currency,
-        frequency: frequency.toLowerCase(),
+        frequency,
         startDate: startDate || null,
         notes: notes || null,
       }),
@@ -203,7 +203,7 @@ function OfferDialog({ applicant, onClose }: { applicant: ApplicantRow | null; o
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "var(--space-3)" }}>
           <Input label="Compensation" placeholder="e.g. 2400000" mono value={amount} onChange={(e) => setAmount(e.target.value)} />
           <Select label="Currency" options={CURRENCIES} value={currency} onChange={(e) => setCurrency(e.target.value)} />
-          <Select label="Per" options={FREQUENCIES} value={frequency} onChange={(e) => setFrequency(e.target.value)} />
+          <Select label="Per" options={FREQ_OPTIONS} value={frequency} onChange={(e) => setFrequency(e.target.value)} />
         </div>
         <Input label="Proposed start date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         <Input label="Notes for the email (optional)" placeholder="e.g. Includes HMO from day 1 and a signing bonus of ₱50,000" value={notes} onChange={(e) => setNotes(e.target.value)} />

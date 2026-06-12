@@ -7,11 +7,34 @@ import { statutoryFor } from "./statutory";
 
 export type Frequency = "monthly" | "semi_monthly" | "bi_weekly" | "weekly";
 
+export type CompFrequency =
+  | "annual" | "semi_annual" | "monthly" | "semi_monthly"
+  | "bi_weekly" | "weekly" | "daily" | "hourly";
+
+/* Periods per year for a quoted salary frequency (260 working days, 2080h). */
+export const ANNUAL_MULTIPLIER: Record<CompFrequency, number> = {
+  annual: 1,
+  semi_annual: 2,
+  monthly: 12,
+  semi_monthly: 24,
+  bi_weekly: 26,
+  weekly: 52,
+  daily: 260,
+  hourly: 2080,
+};
+
+export function annualize(amount: number, frequency: CompFrequency): number {
+  return amount * (ANNUAL_MULTIPLIER[frequency] ?? 1);
+}
+
 export type WorkerPayInput = {
   workerId: string;
   name: string;
   country: string;
-  annualBase: number | null;
+  baseAmount: number | null;
+  baseFrequency: CompFrequency;
+  taxable: boolean;          // false → no withholding tax lines
+  applyStatutory: boolean;   // false → no SSS/PhilHealth/Pag-IBIG/CPF lines
   otMinutes: number;
   unpaidLeaveDays: number;
   newHire: boolean;
@@ -56,7 +79,7 @@ function round2(n: number) {
 }
 
 export function calculateLine(input: WorkerPayInput, frequency: Frequency): PayLine | { excluded: true; exception: PayException; workerId: string } {
-  if (input.annualBase == null || input.annualBase <= 0) {
+  if (input.baseAmount == null || input.baseAmount <= 0) {
     return {
       excluded: true,
       workerId: input.workerId,
@@ -69,13 +92,14 @@ export function calculateLine(input: WorkerPayInput, frequency: Frequency): PayL
     };
   }
 
+  const annualBase = annualize(input.baseAmount, input.baseFrequency);
   const periodsPerYear = PERIODS_PER_YEAR[frequency];
   const periodsPerMonth = periodsPerYear / 12;
-  const base = input.annualBase / periodsPerYear;
-  const hourlyRate = input.annualBase / (52 * 40);
+  const base = annualBase / periodsPerYear;
+  const hourlyRate = annualBase / (52 * 40);
   const otHours = input.otMinutes / 60;
   const ot = otHours * hourlyRate * 1.25;
-  const unpaid = input.unpaidLeaveDays * (input.annualBase / 260);
+  const unpaid = input.unpaidLeaveDays * (annualBase / 260);
 
   const items: PayItem[] = [
     { code: "base_salary", name: "Base salary", kind: "earning", amount: round2(base) },
@@ -88,7 +112,8 @@ export function calculateLine(input: WorkerPayInput, frequency: Frequency): PayL
   }
 
   const gross = round2(base + ot);
-  const statutory = statutoryFor(input.country, input.annualBase / 12, gross, periodsPerMonth);
+  const statutory = statutoryFor(input.country, annualBase / 12, gross, periodsPerMonth)
+    .filter((s) => (s.kind === "tax" ? input.taxable : input.applyStatutory));
   for (const s of statutory) {
     items.push({ code: s.code, name: s.name, kind: s.kind, amount: s.amount });
   }
@@ -119,6 +144,8 @@ export function calculateLine(input: WorkerPayInput, frequency: Frequency): PayL
   if (input.newHire) noteParts.push("New hire");
   if (otHours > 0) noteParts.push(`OT +${round2(otHours)}h`);
   if (input.unpaidLeaveDays > 0) noteParts.push(`Unpaid −${input.unpaidLeaveDays}d`);
+  if (!input.taxable) noteParts.push("Tax-exempt");
+  if (!input.applyStatutory) noteParts.push("No statutory");
 
   return {
     workerId: input.workerId,
