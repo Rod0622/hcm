@@ -66,6 +66,8 @@ export function Dialog({ open, title, description, onClose, footer = null, width
         onClick={(e) => e.stopPropagation()}
         style={{
           width, maxWidth: "calc(100vw - 48px)",
+          maxHeight: "82vh",
+          display: "flex", flexDirection: "column",
           background: "var(--bg-raised)",
           border: "1px solid var(--border-1)",
           borderRadius: "var(--radius-lg)",
@@ -74,13 +76,14 @@ export function Dialog({ open, title, description, onClose, footer = null, width
           ...style,
         }}
       >
-        <header style={{ padding: "var(--space-5) var(--space-5) 0", display: "flex", flexDirection: "column", gap: 4 }}>
+        <header style={{ flexShrink: 0, padding: "var(--space-5) var(--space-5) 0", display: "flex", flexDirection: "column", gap: 4 }}>
           <h3 style={{ font: "var(--title-section)", color: "var(--text-1)" }}>{title}</h3>
           {description ? <p style={{ font: "var(--body-sm)", color: "var(--text-2)" }}>{description}</p> : null}
         </header>
-        <div style={{ padding: "var(--space-4) var(--space-5)" }}>{children}</div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "var(--space-4) var(--space-5)" }}>{children}</div>
         {footer ? (
           <footer style={{
+            flexShrink: 0,
             display: "flex", justifyContent: "flex-end", gap: 8,
             padding: "var(--space-3) var(--space-5)",
             borderTop: "1px solid var(--border-1)",
