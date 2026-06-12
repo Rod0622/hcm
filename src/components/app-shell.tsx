@@ -14,6 +14,7 @@ const NAV: Array<{ section: string; items: Array<{ href: string; label: string; 
   { section: "Workforce", items: [
     { href: "/employees", label: "Employees", icon: "users" },
     { href: "/recruiting", label: "Recruiting", icon: "briefcase", adminOnly: true },
+    { href: "/performance", label: "Performance", icon: "target" },
     { href: "/orgchart", label: "Org chart", icon: "git-fork" },
     { href: "/entities", label: "Legal entities", icon: "building-2", adminOnly: true },
   ]},
@@ -21,6 +22,7 @@ const NAV: Array<{ section: string; items: Array<{ href: string; label: string; 
     { href: "/payroll", label: "Payroll", icon: "banknote" },
     { href: "/compliance", label: "Compliance", icon: "shield-check", adminOnly: true },
     { href: "/time", label: "Time & leave", icon: "clock" },
+    { href: "/requests", label: "Requests", icon: "file-text" },
   ]},
   { section: "Platform", items: [
     { href: "/workflows", label: "Workflows", icon: "workflow", adminOnly: true },
