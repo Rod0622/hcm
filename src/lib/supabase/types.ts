@@ -83,6 +83,7 @@ export type Database = {
         Row: {
           candidate_id: string
           created_at: string
+          hired_worker_id: string | null
           id: string
           matched_keywords: Json
           missing_keywords: Json
@@ -98,6 +99,7 @@ export type Database = {
         Insert: {
           candidate_id: string
           created_at?: string
+          hired_worker_id?: string | null
           id?: string
           matched_keywords?: Json
           missing_keywords?: Json
@@ -113,6 +115,7 @@ export type Database = {
         Update: {
           candidate_id?: string
           created_at?: string
+          hired_worker_id?: string | null
           id?: string
           matched_keywords?: Json
           missing_keywords?: Json
@@ -131,6 +134,20 @@ export type Database = {
             columns: ["candidate_id"]
             isOneToOne: false
             referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "applications_hired_worker_id_fkey"
+            columns: ["hired_worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "applications_hired_worker_id_fkey"
+            columns: ["hired_worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
             referencedColumns: ["id"]
           },
           {
@@ -552,6 +569,70 @@ export type Database = {
           },
         ]
       }
+      doc_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          details: string | null
+          file_name: string | null
+          file_path: string | null
+          id: string
+          kind: string
+          status: string
+          tenant_id: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          details?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          kind?: string
+          status?: string
+          tenant_id: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          details?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          kind?: string
+          status?: string
+          tenant_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doc_requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doc_requests_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "doc_requests_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           created_at: string
@@ -765,6 +846,105 @@ export type Database = {
           },
           {
             foreignKeyName: "field_values_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_on: string | null
+          id: string
+          progress: number
+          status: string
+          tenant_id: string
+          title: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_on?: string | null
+          id?: string
+          progress?: number
+          status?: string
+          tenant_id: string
+          title: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_on?: string | null
+          id?: string
+          progress?: number
+          status?: string
+          tenant_id?: string
+          title?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "goals_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      holidays: {
+        Row: {
+          country_code: string
+          created_at: string
+          holiday_date: string
+          id: string
+          kind: string
+          name: string
+          tenant_id: string
+        }
+        Insert: {
+          country_code: string
+          created_at?: string
+          holiday_date: string
+          id?: string
+          kind?: string
+          name: string
+          tenant_id: string
+        }
+        Update: {
+          country_code?: string
+          created_at?: string
+          holiday_date?: string
+          id?: string
+          kind?: string
+          name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holidays_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2120,6 +2300,135 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_cycles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          period_end: string
+          period_start: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          period_end: string
+          period_start: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          period_end?: string
+          period_start?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_cycles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reviews: {
+        Row: {
+          created_at: string
+          cycle_id: string
+          growth: string | null
+          id: string
+          rating: number | null
+          reviewer_worker_id: string | null
+          status: string
+          strengths: string | null
+          submitted_at: string | null
+          summary: string | null
+          tenant_id: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          cycle_id: string
+          growth?: string | null
+          id?: string
+          rating?: number | null
+          reviewer_worker_id?: string | null
+          status?: string
+          strengths?: string | null
+          submitted_at?: string | null
+          summary?: string | null
+          tenant_id: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          cycle_id?: string
+          growth?: string | null
+          id?: string
+          rating?: number | null
+          reviewer_worker_id?: string | null
+          status?: string
+          strengths?: string | null
+          submitted_at?: string | null
+          summary?: string | null
+          tenant_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reviews_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "review_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_reviewer_worker_id_fkey"
+            columns: ["reviewer_worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "reviews_reviewer_worker_id_fkey"
+            columns: ["reviewer_worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "pto_balances"
+            referencedColumns: ["worker_id"]
+          },
+          {
+            foreignKeyName: "reviews_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
             referencedColumns: ["id"]
           },
         ]

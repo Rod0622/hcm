@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatMoney, relativeTime } from "@/lib/format";
-import { CandidateProfile, type AppGrantRow, type CandidateData, type EmailRow, type HistoryRow } from "./candidate";
+import { CandidateProfile, type AppGrantRow, type CandidateData, type ConvertData, type EmailRow, type HistoryRow } from "./candidate";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
     supabase
       .from("applications")
       .select(`
-        id, status, score, resume_path, resume_filename, created_at,
+        id, status, score, resume_path, resume_filename, created_at, hired_worker_id,
         opening:job_openings(id, title),
         offers(id, base_amount, currency, frequency, start_date, status, signed_doc_path, signed_filename, sent_at, signed_at)
       `)
@@ -82,6 +82,30 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
 
   const hiredApplication = allApps.find((a) => a.status === "hired");
 
+  let convert: ConvertData | null = null;
+  if (hiredApplication && !hiredApplication.hired_worker_id) {
+    const [{ data: entities }, { data: orgUnits }, { data: locations }, { data: managers }, { count: workerCount }] = await Promise.all([
+      supabase.from("legal_entities").select("id, name, country_code, currency").order("name"),
+      supabase.from("org_units").select("id, name").order("name"),
+      supabase.from("locations").select("id, name").order("name"),
+      supabase.from("workers").select("id, person:people(full_name)").in("status", ["active", "onboarding"]),
+      supabase.from("workers").select("id", { count: "exact", head: true }),
+    ]);
+    const signedOffer = hiredApplication.offers.find((o) => o.status === "signed");
+    convert = {
+      applicationId: hiredApplication.id,
+      openingTitle: hiredApplication.opening?.title ?? "",
+      offerAmount: signedOffer ? Number(signedOffer.base_amount) : null,
+      offerCurrency: signedOffer?.currency ?? "PHP",
+      startDate: signedOffer?.start_date ?? new Date().toISOString().slice(0, 10),
+      suggestedNumber: `EMP-${String((workerCount ?? 0) + 1).padStart(4, "0")}`,
+      entities: (entities ?? []).map((e) => ({ id: e.id, name: e.name, currency: e.currency })),
+      orgUnits: (orgUnits ?? []).map((o) => ({ id: o.id, name: o.name })),
+      locations: (locations ?? []).map((l) => ({ id: l.id, name: l.name })),
+      managers: (managers ?? []).map((m) => ({ id: m.id, name: m.person?.full_name ?? "—" })),
+    };
+  }
+
   const data: CandidateData = {
     id: candidate.id,
     tenantId: candidate.tenant_id,
@@ -92,7 +116,8 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
     firstSeen: formatDate(candidate.created_at),
     hired: !!hiredApplication,
     hiredApplicationId: hiredApplication?.id ?? null,
+    hiredWorkerId: hiredApplication?.hired_worker_id ?? null,
   };
 
-  return <CandidateProfile candidate={data} history={history} emails={emailRows} apps={appRows} />;
+  return <CandidateProfile candidate={data} history={history} emails={emailRows} apps={appRows} convert={convert} />;
 }

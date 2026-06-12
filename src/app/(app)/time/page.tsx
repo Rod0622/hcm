@@ -12,9 +12,23 @@ export default async function TimeLeavePage() {
 
   const { data: me } = await supabase
     .from("workers")
-    .select("id, tenant_id, manager_worker_id")
+    .select("id, tenant_id, manager_worker_id, entity:legal_entities(country_code)")
     .eq("user_id", user!.id)
     .maybeSingle();
+
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  const monthStartIso = monthStart.toISOString().slice(0, 10);
+  const monthEnd = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+
+  const [{ data: holidays }, { data: monthLeave }] = await Promise.all([
+    supabase.from("holidays").select("country_code, holiday_date, name, kind").order("holiday_date"),
+    supabase.from("leave_requests")
+      .select("start_date, end_date, leave_type, requester:workers!leave_requests_worker_id_fkey(person:people(full_name))")
+      .eq("status", "approved")
+      .lte("start_date", monthEnd)
+      .gte("end_date", monthStartIso),
+  ]);
 
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
@@ -128,6 +142,14 @@ export default async function TimeLeavePage() {
       isAdmin={access?.isAdmin ?? false}
       clockEntries={clockEntries}
       attendance={Array.from(attendanceMap.values()).sort((a, b) => a.name.localeCompare(b.name))}
+      myCountry={me?.entity?.country_code ?? null}
+      holidays={(holidays ?? []).map((h) => ({ country: h.country_code, date: h.holiday_date, name: h.name, kind: h.kind }))}
+      teamLeave={(monthLeave ?? []).map((l) => ({
+        start: l.start_date,
+        end: l.end_date,
+        type: l.leave_type,
+        name: l.requester?.person?.full_name ?? "—",
+      }))}
     />
   );
 }

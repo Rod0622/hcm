@@ -1,14 +1,15 @@
 import type { BadgeTone } from "@/components/ui";
 
-/* Weekdays between two ISO dates, inclusive. */
-export function businessDays(start: string, end: string): number {
+/* Weekdays between two ISO dates, inclusive; holidays (ISO dates) excluded. */
+export function businessDays(start: string, end: string, holidays: string[] = []): number {
   const s = new Date(start + "T00:00:00Z");
   const e = new Date(end + "T00:00:00Z");
   if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e < s) return 0;
+  const skip = new Set(holidays);
   let count = 0;
   for (let d = new Date(s); d <= e; d.setUTCDate(d.getUTCDate() + 1)) {
     const day = d.getUTCDay();
-    if (day !== 0 && day !== 6) count++;
+    if (day !== 0 && day !== 6 && !skip.has(d.toISOString().slice(0, 10))) count++;
   }
   return count;
 }

@@ -53,6 +53,81 @@ export type AttendanceWorker = {
   entries: ClockEntry[];
 };
 
+export type Holiday = { country: string; date: string; name: string; kind: string };
+export type TeamLeaveEntry = { start: string; end: string; type: string; name: string };
+
+function TeamCalendar({ holidays, leave, myCountry }: { holidays: Holiday[]; leave: TeamLeaveEntry[]; myCountry: string | null }) {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const firstDow = new Date(Date.UTC(year, month, 1)).getUTCDay();
+  const monthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const todayIso = now.toISOString().slice(0, 10);
+
+  const iso = (day: number) => `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const leaveFor = (date: string) => leave.filter((l) => l.start <= date && l.end >= date);
+
+  const cells: Array<{ day: number | null }> = [
+    ...Array.from({ length: firstDow }, () => ({ day: null })),
+    ...Array.from({ length: daysInMonth }, (_, i) => ({ day: i + 1 })),
+  ];
+
+  return (
+    <Card title="Team calendar" subtitle={`${monthLabel} · approved leave and holidays`} padding="0">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderTop: "1px solid var(--border-1)" }}>
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+          <div key={d} style={{ padding: "6px 8px", font: "var(--label-caps)", letterSpacing: "var(--tracking-caps)", textTransform: "uppercase", color: "var(--text-3)", borderBottom: "1px solid var(--border-1)" }}>{d}</div>
+        ))}
+        {cells.map((c, i) => {
+          if (c.day == null) return <div key={`x${i}`} style={{ minHeight: 64, borderBottom: "1px solid var(--border-1)" }} />;
+          const date = iso(c.day);
+          const dow = (firstDow + c.day - 1) % 7;
+          const weekend = dow === 0 || dow === 6;
+          const dayHolidays = holidays.filter((h) => h.date === date);
+          const dayLeave = leaveFor(date);
+          const isToday = date === todayIso;
+          return (
+            <div key={date} style={{
+              minHeight: 64, padding: "5px 7px", borderBottom: "1px solid var(--border-1)",
+              borderLeft: i % 7 === 0 ? "none" : "1px solid var(--border-1)",
+              background: weekend ? "var(--bg-base)" : "transparent",
+              display: "flex", flexDirection: "column", gap: 3,
+            }}>
+              <span style={{
+                font: "var(--weight-medium) var(--text-2xs)/1 var(--font-mono)",
+                color: isToday ? "var(--text-accent)" : "var(--text-3)",
+              }}>
+                {c.day}{isToday ? " · today" : ""}
+              </span>
+              {dayHolidays.map((h) => (
+                <span key={h.name} title={`${h.name} (${h.country})`} style={{
+                  font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--warning-text)",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>
+                  ★ {h.name}
+                </span>
+              ))}
+              {dayLeave.slice(0, 2).map((l, j) => (
+                <span key={j} title={`${l.name} · ${LEAVE_TYPE[l.type] ?? l.type}`} style={{
+                  font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--info-text)",
+                  background: "var(--info-subtle)", borderRadius: 4, padding: "1px 5px",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>
+                  {l.name.split(" ")[0]}
+                </span>
+              ))}
+              {dayLeave.length > 2 ? (
+                <span style={{ font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--text-3)" }}>+{dayLeave.length - 2}</span>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 function Attendance({ rows }: { rows: AttendanceWorker[] }) {
   const router = useRouter();
   const [syncing, setSyncing] = React.useState(false);
@@ -128,11 +203,12 @@ function fmtDays(n: number) {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
-function RequestDialog({ open, onClose, me, balance }: {
+function RequestDialog({ open, onClose, me, balance, holidayDates }: {
   open: boolean;
   onClose: () => void;
   me: Me;
   balance: BalanceRow | null;
+  holidayDates: string[];
 }) {
   const router = useRouter();
   const [type, setType] = React.useState("PTO");
@@ -142,7 +218,7 @@ function RequestDialog({ open, onClose, me, balance }: {
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
-  const days = start && end ? businessDays(start, end) : 0;
+  const days = start && end ? businessDays(start, end, holidayDates) : 0;
   const available = balance ? balance.balance - balance.pending : null;
 
   const submit = async () => {
@@ -202,7 +278,7 @@ function RequestDialog({ open, onClose, me, balance }: {
         <Input label="Reason (optional)" placeholder="e.g. Family trip" value={reason} onChange={(e) => setReason(e.target.value)} />
         {days > 0 ? (
           <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-2)" }}>
-            {fmtDays(days)} working day(s)
+            {fmtDays(days)} working day(s) — weekends and holidays excluded
             {TYPE_KEYS[type] === "pto" && available != null ? ` · ${fmtDays(available)} available` : ""}
           </span>
         ) : null}
@@ -212,7 +288,7 @@ function RequestDialog({ open, onClose, me, balance }: {
   );
 }
 
-export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances, isAdmin, clockEntries, attendance }: {
+export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances, isAdmin, clockEntries, attendance, myCountry, holidays, teamLeave }: {
   me: Me | null;
   myBalance: BalanceRow | null;
   myRequests: RequestRow[];
@@ -221,6 +297,9 @@ export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances, 
   isAdmin: boolean;
   clockEntries: ClockEntry[];
   attendance: AttendanceWorker[];
+  myCountry: string | null;
+  holidays: Holiday[];
+  teamLeave: TeamLeaveEntry[];
 }) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -351,6 +430,8 @@ export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances, 
           </Card>
         ) : null}
 
+        <TeamCalendar holidays={holidays} leave={teamLeave} myCountry={myCountry} />
+
         {isAdmin ? (
         <Card title="PTO ledger" subtitle="Accrual-policy employees · 0.5 day/month for PH" padding="0">
           {teamBalances.length === 0 ? (
@@ -384,7 +465,15 @@ export function TimeLeave({ me, myBalance, myRequests, approvals, teamBalances, 
         </Card>
         ) : null}
       </div>
-      {me ? <RequestDialog open={dialogOpen} onClose={() => setDialogOpen(false)} me={me} balance={myBalance} /> : null}
+      {me ? (
+        <RequestDialog
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          me={me}
+          balance={myBalance}
+          holidayDates={holidays.filter((h) => !myCountry || h.country === myCountry).map((h) => h.date)}
+        />
+      ) : null}
     </Page>
   );
 }

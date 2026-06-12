@@ -4,8 +4,21 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/app-shell";
-import { Icon, Card, Badge, Avatar, Table, Switch, EmptyState, IconButton, type BadgeTone } from "@/components/ui";
+import { Icon, Card, Badge, Avatar, Table, Switch, EmptyState, IconButton, Button, Dialog, Input, Select, type BadgeTone } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+
+export type ConvertData = {
+  applicationId: string;
+  openingTitle: string;
+  offerAmount: number | null;
+  offerCurrency: string;
+  startDate: string;
+  suggestedNumber: string;
+  entities: Array<{ id: string; name: string; currency: string }>;
+  orgUnits: Array<{ id: string; name: string }>;
+  locations: Array<{ id: string; name: string }>;
+  managers: Array<{ id: string; name: string }>;
+};
 
 export type CandidateData = {
   id: string;
@@ -17,7 +30,143 @@ export type CandidateData = {
   firstSeen: string;
   hired: boolean;
   hiredApplicationId: string | null;
+  hiredWorkerId: string | null;
 };
+
+function ConvertDialog({ open, onClose, candidate, convert }: {
+  open: boolean;
+  onClose: () => void;
+  candidate: CandidateData;
+  convert: ConvertData;
+}) {
+  const router = useRouter();
+  const [title, setTitle] = React.useState(convert.openingTitle);
+  const [level, setLevel] = React.useState("");
+  const [entityId, setEntityId] = React.useState(convert.entities[0]?.id ?? "");
+  const [orgUnitId, setOrgUnitId] = React.useState(convert.orgUnits[0]?.id ?? "");
+  const [locationId, setLocationId] = React.useState(convert.locations[0]?.id ?? "");
+  const [managerId, setManagerId] = React.useState("");
+  const [number, setNumber] = React.useState(convert.suggestedNumber);
+  const [startDate, setStartDate] = React.useState(convert.startDate);
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const save = async () => {
+    if (!title.trim() || !entityId || !startDate) {
+      setError("Position, legal entity, and start date are required.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    try {
+      const { data: person, error: personError } = await supabase
+        .from("people")
+        .insert({
+          tenant_id: candidate.tenantId,
+          full_name: candidate.name,
+          email: candidate.email !== "—" ? candidate.email : null,
+          phone: candidate.phone !== "—" ? candidate.phone : null,
+        })
+        .select("id")
+        .single();
+      if (personError) throw new Error(personError.message);
+
+      const { data: existingPosition } = await supabase
+        .from("positions")
+        .select("id")
+        .eq("title", title.trim())
+        .eq("level", level.trim())
+        .limit(1)
+        .maybeSingle();
+      let positionId = existingPosition?.id;
+      if (!positionId) {
+        const { data: created, error: positionError } = await supabase
+          .from("positions")
+          .insert({ tenant_id: candidate.tenantId, org_unit_id: orgUnitId || null, title: title.trim(), level: level.trim() || null })
+          .select("id")
+          .single();
+        if (positionError) throw new Error(positionError.message);
+        positionId = created.id;
+      }
+
+      const { data: worker, error: workerError } = await supabase
+        .from("workers")
+        .insert({
+          tenant_id: candidate.tenantId,
+          person_id: person.id,
+          legal_entity_id: entityId,
+          position_id: positionId,
+          org_unit_id: orgUnitId || null,
+          location_id: locationId || null,
+          manager_worker_id: managerId || null,
+          employee_number: number.trim() || null,
+          status: "onboarding",
+          work_email: candidate.email !== "—" ? candidate.email : null,
+          hired_on: startDate,
+        })
+        .select("id")
+        .single();
+      if (workerError) throw new Error(workerError.message);
+
+      if (convert.offerAmount != null) {
+        await supabase.from("compensation_records").insert({
+          tenant_id: candidate.tenantId,
+          worker_id: worker.id,
+          effective_date: startDate,
+          event: "hire",
+          base_amount: convert.offerAmount,
+          currency: convert.offerCurrency,
+          frequency: "annual",
+          components: { approved_by_label: "Signed offer" },
+          reason: "Hired via recruiting",
+        });
+      }
+
+      await supabase.from("applications").update({ hired_worker_id: worker.id }).eq("id", convert.applicationId);
+
+      onClose();
+      router.push(`/employees/${worker.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Conversion failed");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      title={`Convert to employee — ${candidate.name}`}
+      description="Creates the employee record with compensation from the signed offer; they appear in the directory, org chart, payroll, and PTO accrual immediately."
+      onClose={onClose}
+      footer={
+        <React.Fragment>
+          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={save} disabled={busy} icon={<Icon name="user-plus" size={13} />}>
+            {busy ? "Creating…" : "Create employee"}
+          </Button>
+        </React.Fragment>
+      }
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-4)" }}>
+        <Input label="Position" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Input label="Level" placeholder="e.g. L4" value={level} onChange={(e) => setLevel(e.target.value)} />
+        <Select label="Legal entity" options={convert.entities.map((x) => ({ value: x.id, label: x.name }))} value={entityId} onChange={(e) => setEntityId(e.target.value)} />
+        <Select label="Department" options={convert.orgUnits.map((x) => ({ value: x.id, label: x.name }))} value={orgUnitId} onChange={(e) => setOrgUnitId(e.target.value)} />
+        <Select label="Location" options={convert.locations.map((x) => ({ value: x.id, label: x.name }))} value={locationId} onChange={(e) => setLocationId(e.target.value)} />
+        <Select label="Manager" options={[{ value: "", label: "— None —" }, ...convert.managers.map((x) => ({ value: x.id, label: x.name }))]} value={managerId} onChange={(e) => setManagerId(e.target.value)} />
+        <Input label="Employee number" mono value={number} onChange={(e) => setNumber(e.target.value)} />
+        <Input label="Start date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+      </div>
+      {convert.offerAmount != null ? (
+        <p style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-3)", marginTop: 12 }}>
+          Compensation from signed offer: {convert.offerAmount.toLocaleString()} {convert.offerCurrency} / yr
+        </p>
+      ) : null}
+      {error ? <p style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--danger)", marginTop: 8 }}>{error}</p> : null}
+    </Dialog>
+  );
+}
 
 export type HistoryRow = {
   id: string;
@@ -69,14 +218,16 @@ const EMAIL_KIND: Record<string, string> = {
   general: "General",
 };
 
-export function CandidateProfile({ candidate, history, emails, apps }: {
+export function CandidateProfile({ candidate, history, emails, apps, convert }: {
   candidate: CandidateData;
   history: HistoryRow[];
   emails: EmailRow[];
   apps: AppGrantRow[];
+  convert: ConvertData | null;
 }) {
   const router = useRouter();
   const [busyApp, setBusyApp] = React.useState<string | null>(null);
+  const [convertOpen, setConvertOpen] = React.useState(false);
   const grantedCount = apps.filter((a) => a.granted).length;
 
   const toggleAccess = async (app: AppGrantRow, on: boolean) => {
@@ -108,7 +259,21 @@ export function CandidateProfile({ candidate, history, emails, apps }: {
   };
 
   return (
-    <Page eyebrow="Recruiting" title={candidate.name}>
+    <Page
+      eyebrow="Recruiting"
+      title={candidate.name}
+      actions={
+        convert ? (
+          <Button variant="primary" size="sm" icon={<Icon name="user-plus" size={14} />} onClick={() => setConvertOpen(true)}>
+            Convert to employee
+          </Button>
+        ) : candidate.hiredWorkerId ? (
+          <Button variant="secondary" size="sm" icon={<Icon name="user" size={14} />} onClick={() => router.push(`/employees/${candidate.hiredWorkerId}`)}>
+            View employee record
+          </Button>
+        ) : null
+      }
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <Avatar name={candidate.name} size={56} />
@@ -216,6 +381,9 @@ export function CandidateProfile({ candidate, history, emails, apps }: {
           </Card>
         </div>
       </div>
+      {convert ? (
+        <ConvertDialog open={convertOpen} onClose={() => setConvertOpen(false)} candidate={candidate} convert={convert} />
+      ) : null}
     </Page>
   );
 }
