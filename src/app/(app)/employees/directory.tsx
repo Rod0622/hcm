@@ -39,7 +39,21 @@ export function Directory({ rows }: { rows: DirectoryRow[] }) {
       title="Employees"
       actions={
         <React.Fragment>
-          <Button variant="secondary" size="sm" icon={<Icon name="download" size={14} />}>Export</Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Icon name="download" size={14} />}
+            onClick={async () => {
+              const { downloadCsv } = await import("@/lib/csv");
+              downloadCsv(
+                `employees-${new Date().toISOString().slice(0, 10)}.csv`,
+                ["ID", "Name", "Role", "Department", "Location", "Legal entity", "Manager", "Start", "Status"],
+                filtered.map((r) => [r.number, r.name, r.role, r.dept, r.location, r.entity, r.manager, r.start, r.status])
+              );
+            }}
+          >
+            Export
+          </Button>
           <Button variant="primary" size="sm" icon={<Icon name="plus" size={14} />}>Add employee</Button>
         </React.Fragment>
       }

@@ -214,7 +214,30 @@ export function PayrollAdmin({ periods, detail }: { periods: PeriodRow[]; detail
               </Card>
             ) : null}
 
-            <Card title="Register" subtitle="Per-employee lines for this run" padding="0">
+            <Card
+              title="Register"
+              subtitle="Per-employee lines for this run"
+              padding="0"
+              actions={
+                detail.lines.length > 0 ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<Icon name="download" size={13} />}
+                    onClick={async () => {
+                      const { downloadCsv } = await import("@/lib/csv");
+                      downloadCsv(
+                        `payroll-register-${detail.periodLabel.replace(/[^\d-]/g, "")}.csv`,
+                        ["Employee", "Currency", "Gross", "Taxes", "Deductions", "Net", "Notes"],
+                        detail.lines.map((l) => [l.name, detail.currency, l.gross, l.taxes, l.deductions, l.net, l.change])
+                      );
+                    }}
+                  >
+                    Export CSV
+                  </Button>
+                ) : null
+              }
+            >
               {detail.lines.length === 0 ? (
                 <EmptyState icon={<Icon name="banknote" size={18} />} title="No lines" description="Everyone was excluded — check the exceptions." />
               ) : (

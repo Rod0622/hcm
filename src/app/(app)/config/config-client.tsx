@@ -21,6 +21,7 @@ export type ConfigData = {
     accounts: Array<{ provider: string; status: string; connected: string | null }>;
   };
   restUrl: string;
+  audit: Array<{ id: string; when: string; actor: string; action: string; object: string; source: string }>;
 };
 
 const AREAS = [
@@ -31,6 +32,7 @@ const AREAS = [
   { id: "roles", label: "Roles & permissions", icon: "lock-keyhole" },
   { id: "integrations", label: "Integrations", icon: "plug" },
   { id: "api", label: "API & webhooks", icon: "braces" },
+  { id: "audit", label: "Audit log", icon: "scroll-text" },
 ];
 
 const TYPE_ICONS: Record<string, string> = { Text: "type", Select: "list", Date: "calendar", Contact: "user", Reference: "link", Boolean: "toggle-left", Number: "hash", Currency: "banknote", File: "paperclip" };
@@ -502,6 +504,55 @@ function ApiSection({ data }: { data: ConfigData }) {
   );
 }
 
+/* ---------- Audit log ---------- */
+function AuditSection({ data }: { data: ConfigData }) {
+  const [query, setQuery] = React.useState("");
+  const q = query.toLowerCase();
+  const filtered = data.audit.filter((a) => !q || [a.actor, a.action, a.object, a.source].some((v) => v.toLowerCase().includes(q)));
+
+  const exportCsv = async () => {
+    const { downloadCsv } = await import("@/lib/csv");
+    downloadCsv(
+      `audit-log-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["When (UTC)", "Actor", "Action", "Object", "Source"],
+      filtered.map((a) => [a.when, a.actor, a.action, a.object, a.source])
+    );
+  };
+
+  return (
+    <React.Fragment>
+      <SectionHeader
+        title="Audit log"
+        subtitle="Every change is recorded immutably; the latest 300 events are shown."
+        actions={
+          <React.Fragment>
+            <Input placeholder="Filter by actor, action, object…" prefix={<Icon name="search" size={14} />} value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: 260 }} />
+            <Button variant="secondary" size="sm" icon={<Icon name="download" size={14} />} onClick={exportCsv}>Export CSV</Button>
+          </React.Fragment>
+        }
+      />
+      <Card padding="0">
+        {filtered.length === 0 ? (
+          <EmptyState icon={<Icon name="scroll-text" size={18} />} title="No matching events" description="Try a different filter." />
+        ) : (
+          <Table
+            compact
+            rowKey="id"
+            columns={[
+              { key: "when", label: "When (UTC)", mono: true },
+              { key: "actor", label: "Actor" },
+              { key: "action", label: "Action" },
+              { key: "object", label: "Object", mono: true },
+              { key: "source", label: "Source", render: (r) => <Badge tone="neutral">{r.source}</Badge> },
+            ]}
+            rows={filtered}
+          />
+        )}
+      </Card>
+    </React.Fragment>
+  );
+}
+
 /* ---------- Forms (not built) ---------- */
 function FormsSection() {
   return (
@@ -544,6 +595,7 @@ export function ConfigStudio({ data }: { data: ConfigData }) {
           {area === "roles" ? <RolesSection data={data} /> : null}
           {area === "integrations" ? <IntegrationsSection data={data} /> : null}
           {area === "api" ? <ApiSection data={data} /> : null}
+          {area === "audit" ? <AuditSection data={data} /> : null}
         </div>
       </div>
     </Page>

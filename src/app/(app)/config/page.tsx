@@ -27,6 +27,7 @@ export default async function ConfigPage() {
     { data: ruleSets },
     { data: accounts },
     { count: queuedEmails },
+    { data: audit },
   ] = await Promise.all([
     supabase.from("tenant_users").select("tenant_id, role").eq("user_id", user!.id).limit(1).maybeSingle(),
     supabase.from("object_definitions").select("id, key, label").order("label"),
@@ -40,6 +41,10 @@ export default async function ConfigPage() {
     supabase.from("payroll_rule_sets").select("id, key, name, country_code, payroll_rule_versions(count)").order("name"),
     supabase.from("integration_accounts").select("provider, status, connected_at"),
     supabase.from("outbound_emails").select("id", { count: "exact", head: true }).eq("status", "queued"),
+    supabase.from("audit_events")
+      .select("id, created_at, actor_label, action, object_type, source")
+      .order("created_at", { ascending: false })
+      .limit(300),
   ]);
 
   const workerByUser = new Map((workers ?? []).map((w) => [w.user_id!, w]));
@@ -92,6 +97,14 @@ export default async function ConfigPage() {
       })),
     },
     restUrl: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`,
+    audit: (audit ?? []).map((a) => ({
+      id: String(a.id),
+      when: new Date(a.created_at).toISOString().replace("T", " ").slice(0, 19),
+      actor: a.actor_label ?? "system",
+      action: a.action,
+      object: a.object_type ?? "—",
+      source: a.source ?? "app",
+    })),
   };
 
   return <ConfigStudio data={data} />;
