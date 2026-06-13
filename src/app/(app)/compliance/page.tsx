@@ -1,87 +1,76 @@
-"use client";
+import { createClient } from "@/lib/supabase/server";
+import { formatDate, relativeTime } from "@/lib/format";
+import { Compliance, type AuditRow, type PackRow, type TaskRow } from "./compliance-client";
 
-import * as React from "react";
-import { Page } from "@/components/app-shell";
-import { Icon, Card, Badge, Button, Avatar, Table } from "@/components/ui";
-import { compliance as C } from "@/lib/data";
+export const dynamic = "force-dynamic";
 
-function PackCard({ p }: { p: (typeof C.packs)[number] }) {
-  const pct = Math.round((p.done / p.total) * 100);
-  const complete = p.done === p.total;
-  return (
-    <Card>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{
-            width: 30, height: 30, borderRadius: "var(--radius-sm)",
-            background: "var(--bg-inset)", border: "1px solid var(--border-1)",
-            display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-2)",
-          }}><Icon name="landmark" size={15} /></span>
-          <div style={{ display: "flex", flexDirection: "column", gap: 1, flex: 1, minWidth: 0 }}>
-            <span style={{ font: "var(--title-card)", color: "var(--text-1)" }}>{p.country}</span>
-            <span style={{ font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--text-3)" }}>{p.entity}</span>
-          </div>
-          <Badge tone={complete ? "success" : "warning"} dot>{complete ? "Compliant" : `${p.total - p.done} open`}</Badge>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", font: "var(--weight-medium) var(--text-2xs)/1 var(--font-mono)", color: "var(--text-3)" }}>
-            <span>{p.done}/{p.total} requirements</span><span>{pct}%</span>
-          </div>
-          <div style={{ height: 4, borderRadius: 2, background: "var(--bg-inset)", overflow: "hidden" }}>
-            <div style={{ width: `${pct}%`, height: "100%", background: complete ? "var(--success)" : "var(--accent)", borderRadius: 2 }} />
-          </div>
-        </div>
-        <span style={{ font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-2)" }}>Next: {p.next}</span>
-      </div>
-    </Card>
-  );
-}
+const SEVERITY_TONE: Record<string, "danger" | "warning" | "neutral" | "info"> = {
+  blocker: "danger",
+  high: "warning",
+  low: "neutral",
+  scheduled: "info",
+};
 
-export default function Compliance() {
-  return (
-    <Page
-      eyebrow="Operations"
-      title="Compliance center"
-      actions={
-        <React.Fragment>
-          <Button variant="secondary" size="sm" icon={<Icon name="download" size={14} />}>Audit report</Button>
-          <Button variant="primary" size="sm" icon={<Icon name="plus" size={14} />}>Add country pack</Button>
-        </React.Fragment>
-      }
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-4)" }}>
-          {C.packs.map((p) => <PackCard key={p.country} p={p} />)}
-        </div>
+export default async function CompliancePage() {
+  const supabase = await createClient();
 
-        <Card title="Tasks" subtitle="Generated from country packs and policies" padding="0">
-          <Table
-            rowKey="task"
-            onRowClick={() => {}}
-            columns={[
-              { key: "task", label: "Task" },
-              { key: "country", label: "Pack", render: (r) => <Badge tone="neutral" mono>{r.country}</Badge> },
-              { key: "due", label: "Due", mono: true },
-              { key: "severity", label: "Severity", render: (r) => <Badge tone={r.tone} dot>{r.severity}</Badge> },
-              { key: "owner", label: "Owner", render: (r) => <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Avatar name={r.owner} size={20} />{r.owner}</span> },
-            ]}
-            rows={C.tasks}
-          />
-        </Card>
+  const [{ data: packs }, { data: statuses }, { data: entities }, { data: workers }, { data: audit }] = await Promise.all([
+    supabase.from("compliance_packs").select("id, country_code, name, legal_entity_id, status, entity:legal_entities(name)").order("country_code"),
+    supabase.from("compliance_statuses")
+      .select("id, status, due_on, subject_type, subject_id, requirement:compliance_requirements(name, severity, pack_id), owner:owner_user_id")
+      .order("due_on"),
+    supabase.from("legal_entities").select("id, name, country_code"),
+    supabase.from("workers").select("id, person:people(full_name)"),
+    supabase.from("audit_events")
+      .select("created_at, actor_label, action, source")
+      .order("created_at", { ascending: false })
+      .limit(12),
+  ]);
 
-        <Card title="Audit log" subtitle="Immutable · actor, source, old → new" padding="0" actions={<Button size="sm" variant="ghost">View all</Button>}>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {C.audit.map((a, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 14, padding: "11px 20px", borderBottom: i === C.audit.length - 1 ? "none" : "1px solid var(--border-1)" }}>
-                <span style={{ width: 110, flexShrink: 0, font: "var(--weight-medium) var(--text-2xs)/1.4 var(--font-mono)", color: "var(--text-3)" }}>{a.when}</span>
-                <span style={{ width: 90, flexShrink: 0, font: "var(--label-md)", fontSize: "var(--text-xs)", color: "var(--text-2)" }}>{a.actor}</span>
-                <span style={{ flex: 1, font: "var(--body-sm)", fontSize: "var(--text-xs)", color: "var(--text-1)" }}>{a.action}</span>
-                <Badge tone="neutral">{a.source}</Badge>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    </Page>
-  );
+  const entityName = new Map((entities ?? []).map((e) => [e.id, e.name]));
+  const workerName = new Map((workers ?? []).map((w) => [w.id, w.person?.full_name ?? "—"]));
+  const allStatuses = statuses ?? [];
+
+  const packRows: PackRow[] = (packs ?? []).map((p) => {
+    const own = allStatuses.filter((s) => s.requirement?.pack_id === p.id);
+    const done = own.filter((s) => ["satisfied", "waived"].includes(s.status)).length;
+    const next = own
+      .filter((s) => !["satisfied", "waived"].includes(s.status) && s.due_on)
+      .sort((a, b) => (a.due_on ?? "").localeCompare(b.due_on ?? ""))[0];
+    return {
+      id: p.id,
+      country: p.country_code,
+      entity: p.entity?.name ?? "—",
+      name: p.name,
+      done,
+      total: own.length,
+      next: next ? `${next.requirement?.name} · ${formatDate(next.due_on)}` : "All current",
+    };
+  });
+
+  const tasks: TaskRow[] = allStatuses
+    .filter((s) => !["satisfied", "waived"].includes(s.status))
+    .map((s) => {
+      const subject = s.subject_type === "worker" ? workerName.get(s.subject_id) : entityName.get(s.subject_id);
+      const sev = s.requirement?.severity ?? "low";
+      return {
+        id: s.id,
+        task: s.requirement?.name ?? "—",
+        subject: subject ?? "—",
+        due: s.due_on ? formatDate(s.due_on) : "—",
+        overdue: s.status === "overdue",
+        severity: sev,
+        tone: SEVERITY_TONE[sev] ?? "neutral",
+        status: s.status,
+      };
+    });
+
+  const auditRows: AuditRow[] = (audit ?? []).map((a) => ({
+    when: relativeTime(a.created_at),
+    actor: a.actor_label ?? "system",
+    action: a.action,
+    source: a.source ?? "app",
+  }));
+
+  return <Compliance packs={packRows} tasks={tasks} audit={auditRows} />;
 }
