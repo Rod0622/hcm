@@ -162,9 +162,9 @@ insert into public.payroll_exceptions (tenant_id, run_id, worker_id, severity, c
    'blocker','missing_tax_id','Missing tax ID (TIN)','Request from employee');
 
 -- ---------- Workflows ----------
-insert into public.workflow_definitions (id, tenant_id, key, name, object_type, trigger_event, status, created_by) values
-  ('1f000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','onboarding_us','Onboarding — US','worker','worker.hired','active','aaaaaaaa-0000-0000-0000-000000000002'),
-  ('1f000000-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','onboarding_ph','Onboarding — PH','worker','worker.hired','active','aaaaaaaa-0000-0000-0000-000000000002');
+insert into public.workflow_definitions (id, tenant_id, key, name, object_type, trigger_event, trigger_filter, status, created_by) values
+  ('1f000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','onboarding_us','Onboarding — US','worker','worker.hired','{"entity.country":"US"}','active','aaaaaaaa-0000-0000-0000-000000000002'),
+  ('1f000000-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111','onboarding_ph','Onboarding — PH','worker','worker.hired','{"entity.country":"PH"}','active','aaaaaaaa-0000-0000-0000-000000000002');
 
 insert into public.workflow_versions (id, tenant_id, definition_id, version, graph, published_at) values
   ('2f000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','1f000000-0000-0000-0000-000000000001',1,

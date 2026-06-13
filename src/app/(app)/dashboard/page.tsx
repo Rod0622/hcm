@@ -26,6 +26,14 @@ export default async function DashboardPage() {
     .eq("user_id", user!.id)
     .maybeSingle();
 
+  const { data: myTasks } = await supabase
+    .from("tasks")
+    .select("id, title, kind, due_on, worker:workers(person:people(full_name))")
+    .eq("owner_user_id", user!.id)
+    .in("status", ["open", "in_progress"])
+    .order("due_on")
+    .limit(8);
+
   let clockEntries: ClockEntry[] = [];
   if (me) {
     const todayStart = new Date();
@@ -153,6 +161,14 @@ export default async function DashboardPage() {
     };
   }
 
+  const tasks = (myTasks ?? []).map((t) => ({
+    id: t.id,
+    title: t.title,
+    kind: t.kind,
+    due: t.due_on ? formatDate(t.due_on) : "—",
+    forWhom: t.worker?.person?.full_name ?? "",
+  }));
+
   return (
     <DashboardClient
       displayName={access?.displayName ?? "there"}
@@ -160,6 +176,7 @@ export default async function DashboardPage() {
       me={me ? { workerId: me.id, tenantId: me.tenant_id } : null}
       clockEntries={clockEntries}
       admin={admin}
+      tasks={tasks}
     />
   );
 }

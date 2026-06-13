@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Page } from "@/components/app-shell";
 import { Icon, Badge, Button, Input, Select, Switch, Card, Table, SegmentedControl, EmptyState, type BadgeTone } from "@/components/ui";
 
@@ -192,6 +193,7 @@ function BuilderCanvas() {
 }
 
 export function Workflows({ runs, definitions }: { runs: RunRow[]; definitions: DefinitionRow[] }) {
+  const router = useRouter();
   const [view, setView] = React.useState("runs");
 
   return (
@@ -217,6 +219,7 @@ export function Workflows({ runs, definitions }: { runs: RunRow[]; definitions: 
             ) : (
               <Table
                 rowKey="id"
+                onRowClick={(r) => router.push(`/workflows/${r.id}`)}
                 columns={[
                   { key: "workflow", label: "Workflow" },
                   { key: "subject", label: "Subject" },

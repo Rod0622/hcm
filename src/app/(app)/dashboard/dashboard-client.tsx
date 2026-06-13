@@ -121,12 +121,47 @@ function ApprovalsCard({ items }: { items: AdminData["approvals"] }) {
   );
 }
 
-export function DashboardClient({ displayName, isAdmin, me, clockEntries, admin }: {
+export type TaskItem = { id: string; title: string; kind: string; due: string; forWhom: string };
+
+function MyTasks({ tasks }: { tasks: TaskItem[] }) {
+  const router = useRouter();
+  const [busy, setBusy] = React.useState<string | null>(null);
+
+  const complete = async (id: string) => {
+    setBusy(id);
+    const supabase = createClient();
+    await supabase.from("tasks").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", id);
+    setBusy(null);
+    router.refresh();
+  };
+
+  return (
+    <Card title="My tasks" subtitle="Assigned to you · onboarding and workflow steps" padding="0">
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {tasks.map((t, i) => (
+          <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 20px", borderBottom: i === tasks.length - 1 ? "none" : "1px solid var(--border-1)" }}>
+            <Icon name="list-checks" size={15} color="var(--text-3)" />
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
+              <span style={{ font: "var(--label-md)", fontSize: "var(--text-xs)", color: "var(--text-1)" }}>{t.title}</span>
+              <span style={{ font: "var(--body-sm)", fontSize: "var(--text-2xs)", color: "var(--text-3)" }}>{t.forWhom ? `${t.forWhom} · ` : ""}{t.kind} · due {t.due}</span>
+            </div>
+            <Button size="sm" variant="secondary" disabled={busy === t.id} onClick={() => complete(t.id)}>
+              {busy === t.id ? "…" : "Mark done"}
+            </Button>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+export function DashboardClient({ displayName, isAdmin, me, clockEntries, admin, tasks }: {
   displayName: string;
   isAdmin: boolean;
   me: { workerId: string; tenantId: string } | null;
   clockEntries: ClockEntry[];
   admin: AdminData | null;
+  tasks: TaskItem[];
 }) {
   const router = useRouter();
   const go = (path: string) => router.push(path);
@@ -153,6 +188,8 @@ export function DashboardClient({ displayName, isAdmin, me, clockEntries, admin 
         </div>
 
         {me ? <TimeClock workerId={me.workerId} tenantId={me.tenantId} entries={clockEntries} /> : null}
+
+        {tasks.length > 0 ? <MyTasks tasks={tasks} /> : null}
 
         {!isAdmin || !admin ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-4)" }}>

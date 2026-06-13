@@ -38,7 +38,7 @@ Demo logins (password `TenkaraDemo2026!`):
 | Analytics | Live headcount trend, dept/country mix, attendance hours, leave usage, payroll runs, recruiting funnel |
 | Compliance | Live packs (done/total, next due), open-task list, audit feed + CSV export |
 | Legal entities | List with headcount/locations/tax ID; admin add/edit |
-| Workflows | Live runs + definitions (read); builder kept as visual tab |
+| Workflows | Execution engine: worker.hired spawns a country-scoped run, materializes steps + tasks/approvals/notifications, auto-completes when work is done; run detail + 'My tasks' on dashboard; builder visual tab |
 | 13th-month pay (PH) | Worksheet: basic earned ÷ 12, ₱90k tax-exempt split, per-year, CSV; from run history when available else prorated |
 
 ## Mock / partially wired
@@ -52,10 +52,10 @@ Demo logins (password `TenkaraDemo2026!`):
 1. **Integrations hardening** — Resend key (emails currently queue), Time
    Doctor field-test, password reset + invite-by-email; SSO/IdP for access
    grants. Biggest blocker to real-world use.
-2. **Workflow execution** — make 'worker hired' actually create onboarding
-   tasks/approvals; builder persistence to workflow_versions.
-3. **13th-month as an official run** — persist the worksheet as an off-cycle
+2. **13th-month as an official run** — persist the worksheet as an off-cycle
    payroll run so it lands in payslips and the register.
+3. **Workflow builder persistence** — edit/publish definitions to
+   workflow_versions (execution + read are done).
 4. **Timesheet approval** — weekly manager sign-off before OT feeds payroll.
 5. **Mobile/responsive pass**; payslip + COE PDF generation.
 6. **Ask Tenkara (/ai)** — deferred per product decision.
