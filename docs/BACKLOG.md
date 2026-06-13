@@ -31,30 +31,34 @@ Demo logins (password `TenkaraDemo2026!`):
 | Requests | Self-service COE/payslip requests, HR fulfillment via private hr-docs bucket, notifications both ways |
 | Holidays & calendar | PH/US/SG 2026 holidays; leave counts skip them; team month calendar on /time |
 | Maintenance cron | Nightly: document-expiry alerts, auto-close forgotten time entries |
-| Tests | vitest suite over ATS scoring, leave math, payroll engine (19 tests) |
+| Tests | vitest suite: ATS scoring, leave math, payroll engine, 13th-month (25 tests) |
 | Login provisioning | Admin-gated RPC creates logins (convert-to-employee option + profile button); temp password shown once |
 | Offboarding | Last day + reason → cancels pending leave, revokes access grants, notifies HR with final-pay estimate; nightly flip to terminated |
 | Payroll verification | Per-line payslip breakdown dialog, register + components CSV, docs/PAYROLL.md formula spec for accountant validation |
 | Analytics | Live headcount trend, dept/country mix, attendance hours, leave usage, payroll runs, recruiting funnel |
+| Compliance | Live packs (done/total, next due), open-task list, audit feed + CSV export |
+| Legal entities | List with headcount/locations/tax ID; admin add/edit |
+| Workflows | Live runs + definitions (read); builder kept as visual tab |
+| 13th-month pay (PH) | Worksheet: basic earned ÷ 12, ₱90k tax-exempt split, per-year, CSV; from run history when available else prorated |
 
 ## Mock / partially wired
 
 | Surface | What's mock | Path to live |
 |---|---|---|
-| Compliance | Packs/tasks/audit are sample copy | Wire to compliance_* tables (seeded) |
-| Workflows | Builder canvas + runs are sample | Wire run list to workflow_runs; builder persists to workflow_versions |
-| Legal entities | Placeholder | CRUD on legal_entities (table live + seeded) |
 | Ask Tenkara (/ai) | Placeholder | LLM assistant over tenant data — needs design |
 
 ## Sequenced next
 
-1. **Wire compliance page** — live packs, statuses, and the audit trail feed.
-2. **Legal entities CRUD** — small; unblocks real multi-entity setup.
-3. **Workflows: run list live** — read side first; builder persistence later.
-4. **13th-month pay (PH)** — annual statutory computation from run history.
-5. **Integrations hardening** — Resend key, Time Doctor field-test, SSO/IdP
-   design for access grants; password reset + invite-by-email flows.
-6. **Ask Tenkara (/ai)** — deliberately deferred per product decision.
+1. **Integrations hardening** — Resend key (emails currently queue), Time
+   Doctor field-test, password reset + invite-by-email; SSO/IdP for access
+   grants. Biggest blocker to real-world use.
+2. **Workflow execution** — make 'worker hired' actually create onboarding
+   tasks/approvals; builder persistence to workflow_versions.
+3. **13th-month as an official run** — persist the worksheet as an off-cycle
+   payroll run so it lands in payslips and the register.
+4. **Timesheet approval** — weekly manager sign-off before OT feeds payroll.
+5. **Mobile/responsive pass**; payslip + COE PDF generation.
+6. **Ask Tenkara (/ai)** — deferred per product decision.
 
 ## Engineering debt
 

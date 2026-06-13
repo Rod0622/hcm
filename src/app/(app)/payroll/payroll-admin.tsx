@@ -181,7 +181,15 @@ export function PayrollAdmin({ periods, detail }: { periods: PeriodRow[]; detail
   const openBlockers = detail?.exceptions.filter((e) => e.severity === "blocker" && e.status === "open").length ?? 0;
 
   return (
-    <Page eyebrow="Operations" title="Payroll">
+    <Page
+      eyebrow="Operations"
+      title="Payroll"
+      actions={
+        <Button variant="secondary" size="sm" icon={<Icon name="gift" size={14} />} onClick={() => router.push("/payroll/thirteenth")}>
+          13th-month
+        </Button>
+      }
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
         {error ? <Banner tone="danger" title="Payroll action failed" description={error} /> : null}
 
