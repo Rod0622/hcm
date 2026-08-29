@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Icon, SideNavItem, SideNavSection, Avatar, IconButton, EmptyState } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
-const NAV: Array<{ section: string; items: Array<{ href: string; label: string; icon: string; count?: number; adminOnly?: boolean }> }> = [
+const NAV: Array<{ section: string; items: Array<{ href: string; label: string; icon: string; count?: number; adminOnly?: boolean; ownerOnly?: boolean }> }> = [
   { section: "", items: [
     { href: "/dashboard", label: "Home", icon: "house" },
     { href: "/inbox", label: "Inbox", icon: "inbox" },
@@ -23,6 +23,12 @@ const NAV: Array<{ section: string; items: Array<{ href: string; label: string; 
     { href: "/compliance", label: "Compliance", icon: "shield-check", adminOnly: true },
     { href: "/time", label: "Time & leave", icon: "clock" },
     { href: "/requests", label: "Requests", icon: "file-text" },
+  ]},
+  { section: "My finance", items: [
+    { href: "/finance", label: "Overview", icon: "wallet", ownerOnly: true },
+    { href: "/finance/investments", label: "Investments", icon: "hand-coins", ownerOnly: true },
+    { href: "/finance/loans", label: "Bank loans", icon: "landmark", ownerOnly: true },
+    { href: "/finance/reports", label: "Reports", icon: "chart-pie", ownerOnly: true },
   ]},
   { section: "Platform", items: [
     { href: "/workflows", label: "Workflows", icon: "workflow", adminOnly: true },
@@ -102,7 +108,7 @@ export function AppShell({ children, displayName = "User", role = "member", isAd
           <span style={{ flex: 1, textAlign: "left" }}>Search</span>
           <span style={{ font: "var(--weight-medium) var(--text-2xs)/1 var(--font-mono)", border: "1px solid var(--border-1)", borderRadius: 4, padding: "3px 4px" }}>⌘K</span>
         </button>
-        {NAV.map((group) => ({ ...group, items: group.items.filter((it) => isAdmin || !it.adminOnly) }))
+        {NAV.map((group) => ({ ...group, items: group.items.filter((it) => (isAdmin || !it.adminOnly) && (role === "owner" || !it.ownerOnly)) }))
           .filter((group) => group.items.length > 0)
           .map((group, gi) => (
           <SideNavSection key={gi} label={group.section || undefined}>
@@ -112,7 +118,13 @@ export function AppShell({ children, displayName = "User", role = "member", isAd
                 icon={<Icon name={it.icon} size={16} />}
                 label={it.label}
                 count={it.href === "/inbox" ? inboxCount || undefined : it.count}
-                active={pathname === it.href || pathname.startsWith(it.href + "/")}
+                active={
+                  (pathname === it.href || pathname.startsWith(it.href + "/")) &&
+                  /* Nested items (e.g. /finance/investments under /finance): the longest matching href wins. */
+                  !NAV.some((g) => g.items.some((o) =>
+                    o.href.length > it.href.length && (pathname === o.href || pathname.startsWith(o.href + "/"))
+                  ))
+                }
                 onClick={() => router.push(it.href)}
               />
             ))}

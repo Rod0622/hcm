@@ -1,0 +1,29 @@
+import { createFinanceClient, financeConfigured, requireOwner } from "@/lib/finance/db";
+import type { InvestmentRow, LoanPaymentRow, LoanRow, PersonRow } from "@/lib/finance/calc";
+import { FinanceLocked, FinanceSetup } from "../shared";
+import { Reports } from "./reports-client";
+
+export const dynamic = "force-dynamic";
+
+export default async function ReportsPage() {
+  const access = await requireOwner();
+  if (!access) return <FinanceLocked />;
+  if (!financeConfigured()) return <FinanceSetup />;
+
+  const finance = createFinanceClient();
+  const [{ data: people }, { data: investments }, { data: loans }, { data: payments }] = await Promise.all([
+    finance.from("people").select("id, name, is_me, notes").order("name"),
+    finance.from("investments").select("*").order("transaction_date", { ascending: false }),
+    finance.from("bank_loans").select("*").order("loan_date", { ascending: false }),
+    finance.from("loan_payments").select("*").order("due_date"),
+  ]);
+
+  return (
+    <Reports
+      people={(people ?? []) as PersonRow[]}
+      investments={(investments ?? []) as InvestmentRow[]}
+      loans={(loans ?? []) as LoanRow[]}
+      payments={(payments ?? []) as LoanPaymentRow[]}
+    />
+  );
+}
