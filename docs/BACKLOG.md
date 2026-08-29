@@ -40,6 +40,7 @@ Demo logins (password `TenkaraDemo2026!`):
 | Legal entities | List with headcount/locations/tax ID; admin add/edit |
 | Workflows | Execution engine: worker.hired spawns a country-scoped run, materializes steps + tasks/approvals/notifications, auto-completes when work is done; run detail + 'My tasks' on dashboard; builder visual tab |
 | 13th-month pay (PH) | Worksheet: basic earned ÷ 12, ₱90k tax-exempt split, per-year, CSV; from run history when available else prorated |
+| Personal financing tracker | Owner-only /finance: financer investments (manual interest, referral cuts, per-deal profit), bank loans with generated payment schedules, monthly per-person reports + cash ledger; data in a separate Supabase project — docs/FINANCE.md |
 
 ## Mock / partially wired
 
