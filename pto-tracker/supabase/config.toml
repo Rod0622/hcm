@@ -1,0 +1,6 @@
+# Minimal config so `supabase link` / `db push` / `functions deploy`
+# work without re-running `supabase init`.
+project_id = "pto-tracker"
+
+[functions.slack-notify]
+verify_jwt = true
